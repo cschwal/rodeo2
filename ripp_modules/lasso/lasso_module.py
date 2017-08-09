@@ -10,6 +10,7 @@ import os
 import re
 import tempfile
 import subprocess
+from ripp_modules.lasso.svm import svm_classify as svm
 from Bio.SeqUtils.ProtParam import ProteinAnalysis
 index = 0
 
@@ -17,7 +18,7 @@ def write_csv_headers(output_filename):
     dir_prefix = 'output/lasso/'
     if not os.path.exists(dir_prefix):
         os.makedirs(dir_prefix)
-    headers = ['Accession_id', 'Genus/Species', 'Leader', 'Core', 'Primary Key', 'VALID PRECURSOR', 'Calcd. Lasso Mass (Da)', 'Distance', 'Within 500 nt?', 'Within 150 nt?', 'Further than 1000 nt?', 'Core has 2 or 4 Cys?', 
+    headers = ['Accession_id', 'Genus/Species', 'Leader', 'Core', 'Start', 'End' , 'Primary Key', 'VALID PRECURSOR', 'Calcd. Lasso Mass (Da)', 'Distance', 'Within 500 nt?', 'Within 150 nt?', 'Further than 1000 nt?', 'Core has 2 or 4 Cys?', 
      'Leader longer than core?', 'Plausible lasso ring?', 'Leader has GxxxxxT motif?', 'Core starts with G?', 'Core and BGC in same direction?',
 	 'Ratio leader/core < 2 and > 0.5'	, 'Core starts with Cys and even number of Cys?', 'No Gly in core?', 'Core has at least 1 aromatic aa?',
      'Core has at least 2 aromatic aa?', 'Core has odd number of Cys?', 'Leader has Trp?', 'Leader has Lys?', 'Leader has Cys?',
@@ -39,7 +40,7 @@ def write_csv_headers(output_filename):
      'Score, Motif10', 'Score, Motif11', 'Score, Motif12', 'Score, Motif13', 'Score, Motif14',	
      'Score, Motif15', 'Score, Motif16', 'Sum of MEME scores',
      'No Motifs?', 'Alternate Start Codon?', 'Total Score', 'SVM Classification']
-    features_csv_file = open(dir_prefix + output_filename + "_features.csv", 'w')
+    features_csv_file = open(dir_prefix + "temp_features.csv", 'w')
     svm_csv_file = open("ripp_modules/lasso/svm/fitting_set.csv", 'w')
     features_writer = csv.writer(features_csv_file)
     svm_writer = csv.writer(svm_csv_file)
@@ -51,14 +52,32 @@ def write_csv_headers(output_filename):
 def ripp_write_rows(output_filename, accession_id, genus_species, list_of_rows):
     dir_prefix = 'output/lasso/'
     global index
-    features_csv_file = open(dir_prefix + output_filename + "_features.csv", 'a')
+    features_csv_file = open(dir_prefix + "temp_features.csv", 'a')
     svm_csv_file = open("ripp_modules/lasso/svm/fitting_set.csv", 'a')
     features_writer = csv.writer(features_csv_file)
     svm_writer = csv.writer(svm_csv_file)
     for row in list_of_rows:
-        features_writer.writerow([accession_id, genus_species] + row[0:2] + [index, ''] + row[2:])
-        svm_writer.writerow([index, ''] + row[2:-1]) #Don't include accession_id, leader, core sequence or score
+        features_writer.writerow([accession_id, genus_species] + row[0:4] + [index, ''] + row[4:])
+        svm_writer.writerow([index, ''] + row[4:-1]) #Don't include accession_id, leader, core sequence, start, end, or score
         index += 1
+        
+def run_svm():
+    svm.run_svm()
+    svm_output_reader = csv.reader(open("ripp_modules/lasso/svm/fitting_results.csv"))
+    final_output_writer = csv.writer(open("output/lasso/lasso_features.csv", 'w'))
+    features_reader = csv.reader(open("output/lasso/temp_features.csv"))
+    header_row = features_reader.next() #skip header
+    final_output_writer.writerow(header_row)
+    for row in features_reader:
+        svm_output = svm_output_reader.next()[1]
+        row.append(svm_output)
+        if int(svm_output) == 1:
+            row[-2] = int(row[-2]) + 10
+        if int(row[-2]) > 17: #CUTOFF
+            row[7] = 'Y'
+        else:
+            row[7] = 'N'
+        final_output_writer.writerow(row)
     
 class Ripp(object):
     def __init__(self, 
@@ -77,7 +96,7 @@ class Ripp(object):
         self.pfam_2_coords = pfam_2_coords
         self.set_leader_core()
         self.set_monoisotopic_mass()
-        self.csv_columns = [self.leader, self.core]
+        self.csv_columns = [self.leader, self.core, self.start, self.end]
         
         
     def _find_split(self):

@@ -61,9 +61,9 @@ from sklearn import metrics
 
 # CONFIGURATION OPTIONS
 ''' change these as desired '''
-input_training_file = 'svm/training_set.csv'         # the CSV containing the training set
-#input_fitting_file = 'lassostds.txt_svm.csv'          # the CSV containing the data to be fitted
-output_filename = 'svm/fitting_results.csv'     # output filename; this will be a CSV with the first column being the primary key and the second being the classification
+input_training_file = 'ripp_modules/lasso/svm/training_set.csv'         # the CSV containing the training set
+input_fitting_file = 'ripp_modules/lasso/svm/fitting_set.csv'         # the CSV containing the data to be fitted
+output_filename = 'ripp_modules/lasso/svm/fitting_results.csv'     # output filename; this will be a CSV with the first column being the primary key and the second being the classification
 
 primary_key_column = 0;            # the column of the CSV that contains the primary key (identifier) for each record
 classification_column = 1;         # the column of the CSV that contains the classification for each record
@@ -118,7 +118,7 @@ def write_to_csv(list_of_primary_keys, list_of_classifications, output_file):
         csv_write.writerow(temp_row)
     return
     
-def run_svm(input_fitting_file):
+def run_svm():
 
     # parse data
     

@@ -78,73 +78,72 @@ def __main__():
                 lasso_module.write_csv_headers(output_filename)
                 
     for query in queries:
-        #accession_id
-        if not any(query[-4:] == extension for extension in ['.gb', '.gbk']):
+        if not any(query[-4:] == extension for extension in ['.gb', '.gbk']):#accession_id
             print("LOG:\tRunning RODEO for %s" % ( query))
             gb_handles = entrez_utils.get_gb_handles(query)
             if gb_handles < 0:
                 print("ERROR:\tentrez_utils.get_gb_handles(%s) returned with value %d"\
                       % (query, gb_handles))
                 continue
-            for handle in gb_handles:
-                record = entrez_utils.get_record_from_gb_handle(handle, query)
-                if record < 0:
-                    print("ERROR:\tentrez_utils.get_record_from_gb_handle(%s) returned with value %d"\
-                      % (query, record))
-                    continue
-                if fetch_type == 'orfs':
-                    record.trim_to_n_orfs(fetch_n, fetch_distance)
-                elif fetch_type == 'nucs':
-                    record.trim_to_n_nucleotides(fetch_n, window_size)
-        else: #gbk file
-            record = entrez_utils.get_record_from_gb_handle(open(handle), query)
+        else:#gbk file
+            try:
+                gb_handles = [open(query)]
+            except Exception as e:
+                print(e)
+                continue
+        for handle in gb_handles:
+            record = entrez_utils.get_record_from_gb_handle(handle, query)
             if record < 0:
                 print("ERROR:\tentrez_utils.get_record_from_gb_handle(%s) returned with value %d"\
                   % (query, record))
                 continue
+            if fetch_type == 'orfs':
+                record.trim_to_n_orfs(fetch_n, fetch_distance)
+            elif fetch_type == 'nucs':
+                record.trim_to_n_nucleotides(fetch_n, window_size)
+            record.annotate_w_hmmer()
+            record.set_intergenic_seqs()
+            record.set_intergenic_orfs(min_aa_seq_length=min_aa_seq_length, 
+                                       max_aa_seq_length=max_aa_seq_length,
+                                       overlap=overlap)
+            module = nulltype_module
+            for orf in record.intergenic_orfs:
+                if orf.start < orf.end:
+                    direction = "+"
+                else:
+                    direction = "-"
+                row = [query, record.cluster_genus_species, record.cluster_accession, 
+                       orf.start, orf.end, direction, orf.sequence]
+                module.main_write_row(output_filename, row)
+            for cds in record.CDSs:
+                if cds.start < cds.end:
+                    direction = "+"
+                else:
+                    direction = "-"
+                row = [query, record.cluster_genus_species, record.cluster_accession,
+                       cds.accession_id, cds.start, cds.end, direction]
+                for pfam_acc, desc, e_val in cds.pfam_descr_list:
+                    row += [pfam_acc, desc, e_val]
+                module.co_occur_write_row(output_filename, row)
             
-        record.annotate_w_hmmer()
-        record.set_intergenic_seqs()
-        record.set_intergenic_orfs(min_aa_seq_length=min_aa_seq_length, 
-                                   max_aa_seq_length=max_aa_seq_length,
-                                   overlap=overlap)
-        for orf in record.intergenic_orfs:
-            if orf.start < orf.end:
-                direction = "+"
-            else:
-                direction = "-"
-            row = [query, record.cluster_genus_species, record.cluster_accession, 
-                   orf.start, orf.end, direction, orf.sequence]
-            module.main_write_row(output_filename, row)
-        for cds in record.CDSs:
-            if cds.start < cds.end:
-                direction = "+"
-            else:
-                direction = "-"
-            row = [query, record.cluster_genus_species, record.cluster_accession,
-                   cds.accession_id, cds.start, cds.end, direction]
-            for pfam_acc, desc, e_val in cds.pfam_descr_list:
-                row += [pfam_acc, desc, e_val]
-            module.co_occur_write_row(output_filename, row)
-        
-#==============================================================================
-#     All generic orf processing is done now. Moving on to RiPP class specifics
-#==============================================================================
-        print(peptide_types)
-        for peptide_type in peptide_types:
-            list_of_rows = []
-            if peptide_type == "lasso":
-                module = lasso_module
-            record.set_ripps(module)
-            record.score_ripps(module)
-            print(len(record.ripps))
-            for ripp in record.ripps:
-                list_of_rows.append(ripp.csv_columns)
-            module.ripp_write_rows(output_filename, record.cluster_accession,
-                                   record.cluster_genus_species, list_of_rows)
-        if not evaluate_all:
-            #TODO users may want to see what the other entries could be?
-            break
-            
-        
+    #==============================================================================
+    #     All generic orf processing is done now. Moving on to RiPP class specifics
+    #==============================================================================
+            for peptide_type in peptide_types:
+                list_of_rows = []
+                if peptide_type == "lasso":
+                    module = lasso_module
+                record.set_ripps(module)
+                record.score_ripps(module)
+                for ripp in record.ripps:
+                    list_of_rows.append(ripp.csv_columns)
+                module.ripp_write_rows(output_filename, record.cluster_accession, #cluster acc or query acc?
+                                       record.cluster_genus_species, list_of_rows)
+            if not evaluate_all:
+                #TODO users may want to see what the other entries could be?
+                break
+    for peptide_type in peptide_types:
+        if peptide_type == "lasso":
+                    module = lasso_module
+        module.run_svm()
 __main__()
