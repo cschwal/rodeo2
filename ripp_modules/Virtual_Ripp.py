@@ -54,22 +54,22 @@ class Virtual_Ripp(object):
 #        self.set_monoisotopic_mass()
 #        self.csv_columns = [self.leader, self.core, self.start, self.end]
 
-#    def run_svm(self):
-#        if self.peptide_type == 'lasso':
-#            from ripp_modules.lasso.svm import svm_classify as svm
-#        elif self.peptide_type == 'sacti':
-#            from ripp_modules.sacti.svm import svm_classify as svm
-#        elif self.peptide_type == 'thio':
-#            from ripp_modules.thio.svm import svm_classify as svm
-#        elif self.peptide_type == 'lanthi':
-#            from ripp_modules.lanthi.svm import svm_classify as svm
-#        svm.run_svm()
-#        svm_output_reader = csv.reader(open("ripp_modules/" + self.peptide_type + "/svm/fitting_results.csv"))
-#        final_output_writer = csv.writer(open("output/" + self.peptide_type + '/'\
-#                                              + self.peptide_type + "_features.csv", 'w'))
-#        features_reader = csv.reader(open("output/" + self.peptide_type + "/temp_features.csv"))
-#        header_row = features_reader.next() #skip header
-#        final_output_writer.writerow(header_row)
+    def run_svm(self):
+        if self.peptide_type == 'lasso':
+            from ripp_modules.lasso.svm import svm_classify as svm
+        elif self.peptide_type == 'sacti':
+            from ripp_modules.sacti.svm import svm_classify as svm
+        elif self.peptide_type == 'thio':
+            from ripp_modules.thio.svm import svm_classify as svm
+        elif self.peptide_type == 'lanthi':
+            from ripp_modules.lanthi.svm import svm_classify as svm
+        svm.run_svm()
+        svm_output_reader = csv.reader(open("ripp_modules/" + self.peptide_type + "/svm/fitting_results.csv"))
+        final_output_writer = csv.writer(open("output/" + self.peptide_type + '/'\
+                                              + self.peptide_type + "_features.csv", 'w'))
+        features_reader = csv.reader(open("output/" + self.peptide_type + "/temp_features.csv"))
+        header_row = features_reader.next() #skip header
+        final_output_writer.writerow(header_row)
         
         #need to make ubiquitous 
         for row in features_reader:
@@ -100,10 +100,6 @@ class Virtual_Ripp(object):
             return []
         return out
     
-    #Used for scoring to determine minimum distance from this ripp to a set
-    #of coordinates.
-    #For example, if coords_list was a list of the coordinates of some pfam,
-    #this function would return the distance to the closest coordinate of that pfam
     def get_min_dist(self, coords_list):
         if coords_list == []:
             return None
@@ -113,15 +109,3 @@ class Virtual_Ripp(object):
                            abs(self.start-coord[1]), abs(self.end-coord[1]),
                            min_dist)
         return min_dist
-    
-    def set_monoisotopic_mass(self):
-        print("ERROR:\tMethod \'set_monoisotopic_mass\' not implemented for class %s" % (self.peptyde_type))
-        raise NameError()
-        
-    def set_split(self):
-        print("ERROR:\tMethod \'set_split\' not implemented for class %s" % (self.peptyde_type))
-        raise NameError()
-        
-    def set_score(self):
-        print("ERROR:\tMethod \'set_score\' not implemented for class %s" % (self.peptyde_type))
-        raise NameError()
