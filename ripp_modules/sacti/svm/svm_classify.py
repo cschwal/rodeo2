@@ -61,9 +61,9 @@ from sklearn import metrics
 
 # CONFIGURATION OPTIONS
 ''' change these as desired '''
-input_training_file = 'ripp_modules/lasso/svm/lasso_training_set.csv'         # the CSV containing the training set
-input_fitting_file = 'ripp_modules/lasso/svm/fitting_set.csv'         # the CSV containing the data to be fitted
-output_filename = 'ripp_modules/lasso/svm/fitting_results.csv'     # output filename; this will be a CSV with the first column being the primary key and the second being the classification
+input_training_file = 'ripp_modules/sacti/svm/sacti_training_set.csv'         # the CSV containing the training set
+input_fitting_file = 'ripp_modules/sacti/svm/fitting_set.csv'         # the CSV containing the data to be fitted
+output_filename = 'ripp_modules/sacti/svm/fitting_results.csv'     # output filename; this will be a CSV with the first column being the primary key and the second being the classification
 
 primary_key_column = 0;            # the column of the CSV that contains the primary key (identifier) for each record
 classification_column = 1;         # the column of the CSV that contains the classification for each record

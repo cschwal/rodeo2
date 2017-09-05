@@ -85,7 +85,7 @@ class My_Record(object):
         for CDS in self.CDSs:
             CDS.pfam_descr_list = hmmer_utils.get_hmmer_info(CDS.accession_id) #Possible input for n and e_cutoff here
             for annot in CDS.pfam_descr_list:
-                if annot[0] not in self.pfam_2_coords.keys():
+                if annot[0] not in self.pfam_2_coords.keys(): #annot[0] is the PF* key
                     self.pfam_2_coords[annot[0]] = []
                 self.pfam_2_coords[annot[0]].append((CDS.start, CDS.end))
 
@@ -202,7 +202,7 @@ class My_Record(object):
                 
     def score_ripps(self, module):
         for ripp in self.ripps:
-            ripp.score_leader_core()
+            ripp.set_score()
                 
                     
     def print_info(self):

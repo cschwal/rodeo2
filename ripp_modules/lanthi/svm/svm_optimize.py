@@ -33,18 +33,15 @@
 # GNU Affero General Public License for more details.
 #
 '''
-   SVM classification script
+   SVM optimization script
    
    Required input:
      a training file CSV
-     a set of model data CSV (if fitting)
      
    Output:
      a CSV list of identifiers and classifications
      
    Note that all options must be hard-coded (the script does not take command-line arguments).
-   
-   This script assumes you have already optimized kernel parameters. Use the included optimization script if not.
    
    RECOMMENDATION:
      Input CSV should ideally have its primary key as column 0, its classification as column 1, and feature as columns [2,...,end]
@@ -61,19 +58,28 @@ from sklearn import metrics
 
 # CONFIGURATION OPTIONS
 ''' change these as desired '''
-input_training_file = 'ripp_modules/lasso/svm/lasso_training_set.csv'         # the CSV containing the training set
-input_fitting_file = 'ripp_modules/lasso/svm/fitting_set.csv'         # the CSV containing the data to be fitted
-output_filename = 'ripp_modules/lasso/svm/fitting_results.csv'     # output filename; this will be a CSV with the first column being the primary key and the second being the classification
+
+input_training_file = 'data_set.csv'         # the CSV containing the training set
+output_filename = 'optimization_results.csv'     # output filename; this will be a CSV with the parameters and accuracy
 
 primary_key_column = 0;            # the column of the CSV that contains the primary key (identifier) for each record
 classification_column = 1;         # the column of the CSV that contains the classification for each record
 csv_has_header = True;             # set to true if CSVs have header rows to ignore upon import
 
-# default kernel values
-kernel_option = 'rbf'
-C_option = 25
-gamma_option = 2.75E-06
-class_weight_option = 'auto'
+# values for optimization
+kernel_option = 'rbf'       # the options below are for rbf; feel free to modify for poly, linear, etc
+C_max = 10
+C_min = -1
+C_base = 5
+C_steps = 11
+C_options = np.logspace(C_min,C_max,num=C_steps,base=C_base,dtype=float)
+gamma_max = -2
+gamma_min = -10
+gamma_base = 10
+gamma_steps = 9
+gamma_options = np.logspace(gamma_min,gamma_max,num=gamma_steps,base=gamma_base,dtype=float)
+class_weight_option = 'balanced'
+folds_validation = [2]
 
 def parse_CSV_to_dataset(csv_filename, dataset_type):
     '''Parse an input CSV into a data set
@@ -110,24 +116,23 @@ def parse_CSV_to_dataset(csv_filename, dataset_type):
           dataset.append(temp_entry)
     return dataset
     
-def write_to_csv(list_of_primary_keys, list_of_classifications, output_file):
+def write_to_csv(result_list, output_file):
     with open(output_filename, 'wb') as csvfile:
       csv_write = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-      for i in range(len(list_of_primary_keys)):
-        temp_row = [list_of_primary_keys[i],list_of_classifications[i]]
-        csv_write.writerow(temp_row)
+      csv_write.writerow(['kernel','fold cross-validation','C value','gamma value','class_weight','precision','recall','f1','score'])
+      for row in result_list:
+        csv_write.writerow(row)
     return
     
-def run_svm():
+def main():
 
     # parse data
     
     print "Importing training and fitting data ..."
     training_data_unrefined = parse_CSV_to_dataset(input_training_file, 'training')
-    fitting_data_unrefined = parse_CSV_to_dataset(input_fitting_file, 'fitting')
     
     primary_key_list = []
-    fitting_data_just_features = []
+
     training_data_just_features = []
     training_data_classifications = []
    
@@ -135,10 +140,6 @@ def run_svm():
         training_data_classifications.append(entry.pop(1))
         entry.pop(0)
         training_data_just_features.append(entry)  
-    for entry in fitting_data_unrefined:
-        primary_key_list.append(entry.pop(0))
-        entry.pop(0)
-        fitting_data_just_features.append(entry)
     print "  (done)"
     print "Initiating learning and fitting"
     
@@ -146,18 +147,25 @@ def run_svm():
     training_data_refined = preprocessing.scale(training_data_just_features)
     scaler = preprocessing.StandardScaler().fit(training_data_refined)
     training_data_refined = scaler.transform(training_data_just_features)
-    fitting_data_refined = scaler.transform(fitting_data_just_features)
 
-    # This creates the classifier and learns using the model data
-    clf = svm.SVC(kernel=kernel_option,class_weight=class_weight_option,C=C_option,gamma=gamma_option)
-    clf.fit(training_data_refined, training_data_classifications)
-
-    # This classifies the input data as a list
-    classification_list = clf.predict(fitting_data_refined)
+    test_results = []
+    
+    for fold in folds_validation:
+        for C_option in C_options:
+            for gamma_option in gamma_options:
+                clf = svm.SVC(kernel=kernel_option,class_weight=class_weight_option,C=C_option,gamma=gamma_option)
+                prec = cross_validation.cross_val_score(clf, training_data_refined, training_data_classifications, cv=fold, scoring='precision')
+                recd = cross_validation.cross_val_score(clf, training_data_refined, training_data_classifications, cv=fold, scoring='recall')
+                f1we = cross_validation.cross_val_score(clf, training_data_refined, training_data_classifications, cv=fold, scoring='f1')
+                scor = prec.mean() * recd.mean()
+                print('Using %d fold, %.2E C, %.2E gamma: %0.2f precision, %0.2f recall, %0.2f f1, %0.2f score' % (fold, C_option, gamma_option, prec.mean(), recd.mean(), f1we.mean(), scor))
+                test_results.append([kernel_option,fold,C_option,gamma_option,class_weight_option,prec.mean(),recd.mean(),f1we.mean(),scor])
     
     # Output results to file
-    write_to_csv(primary_key_list, classification_list, output_filename)
+    write_to_csv(test_results, output_filename)
     print " ... Done"
     
     return
 
+if __name__ == '__main__':
+  main()

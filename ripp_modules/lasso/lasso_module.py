@@ -12,6 +12,7 @@ import tempfile
 import subprocess
 from ripp_modules.lasso.svm import svm_classify as svm
 from Bio.SeqUtils.ProtParam import ProteinAnalysis
+from Virtual_Ripp import Virtual_Ripp
 index = 0
 
 def write_csv_headers(output_filename):
@@ -45,7 +46,7 @@ def write_csv_headers(output_filename):
     features_writer = csv.writer(features_csv_file)
     svm_writer = csv.writer(svm_csv_file)
     features_writer.writerow(headers)
-    svm_writer.writerow(headers[4:-2])#Don't include accession_id, genus/species,
+    svm_writer.writerow(headers[6:-2])#Don't include accession_id, genus/species,
                                         #leader, core sequence, score, or svm classification
 
 
@@ -79,104 +80,90 @@ def run_svm():
             row[7] = 'N'
         final_output_writer.writerow(row)
     
-class Ripp(object):
+class Ripp(Virtual_Ripp):
     def __init__(self, 
                  start, 
                  end, 
                  sequence,
                  upstream_sequence,
                  pfam_2_coords):
-        self.start = start
-        self.end = end
-        self.sequence = sequence
-        self.upstream_sequence = upstream_sequence
+        super(Ripp, self).__init__(start, 
+                                     end, 
+                                     sequence,
+                                     upstream_sequence,
+                                     pfam_2_coords)
         self.peptide_type = 'lasso'
-        self.score  = 0
-        self.query_motif_file = 'ripp_modules/' + self.peptide_type + '/' + self.peptide_type + "_fimo.txt"
-        self.pfam_2_coords = pfam_2_coords
-        self.set_leader_core()
+        self.set_split()
         self.set_monoisotopic_mass()
         self.csv_columns = [self.leader, self.core, self.start, self.end]
         
+    #Used for scoring to determine minimum distance from this ripp to a set
+    #of coordinates.
+    #For example, if coords_list was a list of the coordinates of some pfam,
+    #this function would return the distance to the closest coordinate of that pfam
+#    def get_min_dist(self, coords_list):
+#        if coords_list == []:
+#            return None
+#        min_dist = abs(self.start-coords_list[0][0])
+#        for coord in coords_list:
+#            min_dist = min(abs(self.start-coord[0]), abs(self.end-coord[0]),
+#                           abs(self.start-coord[1]), abs(self.end-coord[1]),
+#                           min_dist)
+#        return min_dist
+#    
+#    #TODO error catching
+#    
+#    
+#        
+#    def run_fimo_simple(self):
+#        "Run FIMO"
+#        #TODO change to temp file
+#        with open("TEMP.seq", 'w+') as tfile:
+#            tfile.write(">query\n%s" % (self.sequence))
+#    
+##       command = ["$HOME/meme/bin/fimo", "--text", "--verbosity", "1", self.query_motif_file, tfile.name]
+#        command = ["$HOME/meme/bin/fimo --text --verbosity 1 " + self.query_motif_file + " " + "TEMP.seq"]
+#        try:
+#            out, err, retcode = execute(command)
+#        except OSError:
+#            print("ERROR:\tCould not run FIMO")
+#            return ""
+#        if retcode != 0:
+#            print('FIMO returned %d: %r while searching %r', retcode,
+#                            err, self.query_motif_file)
+#            return []
+#        return out   
+
+    
+####################################################################################
+################################ Lasso functions ###################################
+####################################################################################
+
         
-    def _find_split(self):
-        #TODO also regex for leader motifs
-        if self.peptide_type == 'lasso':
-            self.split_lasso()
+#    def set_leader_core(self):
+#        self.split()
+#        if self.split_index == -1:
+#            self.core = self.sequence
+#            self.leader = ''
+#        else:
+#            self.leader = self.sequence[0:self.split_index]
+#            self.core = self.sequence[self.split_index:]
         
         
-    def set_leader_core(self):
-        self._find_split()
+    def set_split(self):
+        #TODO add more regexes
+        match = re.search('(T[A-Z]{7,10}(D|E)[A-Z]{5,20}\*)', self.sequence + '*')
+        if match is None:
+            self.split_index = -1
+        else:
+            self.split_index = match.start() + 2
+        
         if self.split_index == -1:
             self.core = self.sequence
             self.leader = ''
         else:
             self.leader = self.sequence[0:self.split_index]
             self.core = self.sequence[self.split_index:]
-        
-    def score_leader_core(self):
-        if self.peptide_type == 'lasso':
-            self.score_lasso()
-        
-    def print_leader_core(self):
-        if self.split_index == -1:
-#            print("%d:%d    No leader viable %s-like split found for %s...%s" % 
-#                  (self.start, self.end, self.peptide_type, self.sequence[:5], self.sequence[-3:]))
-            return
-        else:
-            if 'AGGAGGA' in self.upstream_sequence:
-                print("Shine-Delgarno present in...")
-            print("SCORE:%d\t%d:%d\t%s-->%s" 
-                  % (self.score, self.start, self.end, self.leader, self.core))
-            return
-
-    #Used for scoring to determine minimum distance from this ripp to a set
-    #of coordinates.
-    #For example, if coords_list was a list of the coordinates of some pfam,
-    #this function would return the distance to the closest coordinate of that pfam
-    def get_min_dist(self, coords_list):
-        if coords_list == []:
-            return None
-        min_dist = abs(self.start-coords_list[0][0])
-        for coord in coords_list:
-            min_dist = min(abs(self.start-coord[0]), abs(self.end-coord[0]),
-                           abs(self.start-coord[1]), abs(self.end-coord[1]),
-                           min_dist)
-        return min_dist
-    
-    #TODO error catching
-    
-    
-        
-    def run_fimo_simple(self):
-        "Run FIMO"
-        #TODO change to temp file
-        with open("TEMP.seq", 'w+') as tfile:
-            tfile.write(">query\n%s" % (self.sequence))
-    
-#       command = ["$HOME/meme/bin/fimo", "--text", "--verbosity", "1", self.query_motif_file, tfile.name]
-        command = ["$HOME/meme/bin/fimo --text --verbosity 1 " + self.query_motif_file + " " + "TEMP.seq"]
-        try:
-            out, err, retcode = execute(command)
-        except OSError:
-            print("ERROR:\tCould not run FIMO")
-            return ""
-        if retcode != 0:
-            print('FIMO returned %d: %r while searching %r', retcode,
-                            err, self.query_motif_file)
-            return []
-        return out   
-
-    
-####################################################################################
-################################ Lasso functions ###################################
-####################################################################################
-    def split_lasso(self):
-        match = re.search('(T[A-Z]{7,10}(D|E)[A-Z]{5,20}\*)', self.sequence + '*')
-        if match is None:
-            self.split_index = -1
-        else:
-            self. split_index = match.start() + 2
                 
     def get_fimo_score(self):
         #TODO better way for this?
@@ -194,14 +181,14 @@ class Ripp(object):
         return fimo_motifs, motif_score, fimo_scores
     
     def set_monoisotopic_mass(self):
-        self.set_number_bridges()
+        self._set_number_bridges()
         CC_mass = 2*self._num_bridges
         # dehydration indicative of cyclization     
         bond = 18.02
         monoisotopic_mass = ProteinAnalysis(self.core.replace('X', ''), monoisotopic=True).molecular_weight()
         self._monoisotopic_weight = monoisotopic_mass + CC_mass - bond
         
-    def set_number_bridges(self):
+    def _set_number_bridges(self):
         '''
         Predict the lassopeptide number of disulfide bridges
         '''
@@ -212,7 +199,7 @@ class Ripp(object):
             self._num_bridges = 2
         return self._num_bridges
     
-    def score_lasso(self):
+    def set_score(self):
         scoring_csv_columns = []
         cPFam = "PF00733"
         ePFam = "PF05402"
@@ -481,7 +468,6 @@ class Ripp(object):
             scoring_csv_columns.append(1)
         else:
             scoring_csv_columns.append(0)
-        #TODO NEED TO GET THE ACTUAL CODON Alternate Start Codon?
         if self.leader[0] != 'M':
             scoring_csv_columns.append(1)
             self.score += -1

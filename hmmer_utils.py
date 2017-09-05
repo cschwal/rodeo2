@@ -19,6 +19,10 @@ def _generate_fasta(accession):
     efetch_process.communicate()
     out_file.close()
 
+def _generate_fasta_from_string(query_string):
+    handle = open("fasta_file.tmp.fasta", "w+")
+    handle.write(">temp_string\n" + query_string)
+
 def _generate_hmmer():
     hmmer_process = subprocess.call(["hmmscan", "-o", "hmm_out.tmp.tab", "--noali",
                                       "--domtblout", "pFamInfo.tmp.tab", "Pfam-A.hmm",
@@ -47,9 +51,12 @@ def _parse(n, e_cutoff):
                     return ret_list
     return ret_list
 
-def get_hmmer_info(accession, n=3, e_cutoff=.001): #TODO handle lists of accessions
+def get_hmmer_info(query, n=3, e_cutoff=.001, query_is_accession=True): #TODO handle lists of accessions
     """Returns top n hmmscan hits with e_values lower than e_cutoff"""
-    _generate_fasta(accession)
+    if query_is_accession:
+        _generate_fasta(query)
+    else:
+        _generate_fasta_from_string(query)
     _generate_hmmer()
     pfam_desc_list = _parse(n, e_cutoff)
     return pfam_desc_list

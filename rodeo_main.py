@@ -17,8 +17,8 @@ def __main__():
 #   or a file which itself contains a list of accessions.
 #==============================================================================
     parser = argparse.ArgumentParser("Main RODEO app.")
-    parser.add_argument('acc', type=str,
-                        help='Accession number or or .txt file of accession numbers') #accession # or gi
+    parser.add_argument('query', type=str,
+                        help='Accession number, genbank file or .txt file with an accession or .gbk query on each line') #accession # or gi
     parser.add_argument('-u', '--upper_limit', type=int, default=100, 
                         help='Maximum size of potential ORF') #better word for potential?
     parser.add_argument('-l', '--lower_limit', type=int, default=20, 
@@ -45,7 +45,7 @@ def __main__():
     if not any(args.fetch_type==ft for ft in ['orfs', 'nucs']):
         print("ERROR:\t Invalid argument for -ft/-fetch_type")
         return None
-    query = args.acc
+    query = args.query
     queries = []
     #WARNING:
         #POSSIBLE INFINITE LOOP if users have circular file references
@@ -72,11 +72,19 @@ def __main__():
     
     module.main_write_headers(output_filename)
     module.co_occur_write_headers(output_filename)
+    
+    ripp_modules = {}
     for peptide_type in peptide_types:
-            if peptide_type == "lasso":
-                from ripp_modules.lasso import lasso_module
-                lasso_module.write_csv_headers(output_filename)
-                
+                list_of_rows = []
+                if peptide_type == "lasso":
+                    import ripp_modules.lasso.lasso_module as module
+                    ripp_modules["lasso"] = module
+                elif peptide_type == "lanthi":
+                    import ripp_modules.lanthi.lanthi_module as module
+                    ripp_modules["lanthi"] = module
+                elif peptide_type == "sacti":
+                    import ripp_modules.sacti.sacti_module as module
+                    ripp_modules["sacti"] = module
     for query in queries:
         if not any(query[-4:] == extension for extension in ['.gb', '.gbk']):#accession_id
             print("LOG:\tRunning RODEO for %s" % ( query))
@@ -131,8 +139,8 @@ def __main__():
     #==============================================================================
             for peptide_type in peptide_types:
                 list_of_rows = []
-                if peptide_type == "lasso":
-                    module = lasso_module
+                module = ripp_modules[peptide_type]
+                module.write_csv_headers(output_filename)
                 record.set_ripps(module)
                 record.score_ripps(module)
                 for ripp in record.ripps:
@@ -143,7 +151,6 @@ def __main__():
                 #TODO users may want to see what the other entries could be?
                 break
     for peptide_type in peptide_types:
-        if peptide_type == "lasso":
-                    module = lasso_module
+        module = ripp_modules[peptide_type]
         module.run_svm()
 __main__()
