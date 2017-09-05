@@ -12,7 +12,7 @@ import tempfile
 import subprocess
 from ripp_modules.lasso.svm import svm_classify as svm
 from Bio.SeqUtils.ProtParam import ProteinAnalysis
-from Virtual_Ripp import Virtual_Ripp
+from ripp_modules.Virtual_Ripp import Virtual_Ripp
 index = 0
 
 def write_csv_headers(output_filename):
