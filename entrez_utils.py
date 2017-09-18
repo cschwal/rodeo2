@@ -58,8 +58,8 @@ def get_gb_handles(prot_accession_id):
 
 #gb_handle should only be a handle to ONE query 
 def get_record_from_gb_handle(gb_handle, nuccore_accession_id):
-    """Takes an input gb_filestream and nuccore accession_id.
-    Returns a record containing basic information about the accession_id.
+    """Takes an input gb_filestream and query accession_id.
+    Returns a record containing basic information about the query.
     i.e. CDSs, genus/species, sequence.
     
     ERROR CODES:
@@ -77,6 +77,9 @@ def get_record_from_gb_handle(gb_handle, nuccore_accession_id):
                 end = int(feature.location.end)
                 if 'protein_id' in feature.qualifiers.keys():
                     accession_id = feature.qualifiers['protein_id'][0]
+                    direction = feature.strand
+                    if nuccore_accession_id == accession_id:
+                        ret_record.query_index = len(ret_record.CDSs)
                 else:
                     #print("ERROR:\tCouldn't get accession ID for CDS") 
                     continue
@@ -85,7 +88,7 @@ def get_record_from_gb_handle(gb_handle, nuccore_accession_id):
                 else:
                     #print("ERROR:\tCouldn't get sequence for CDS") 
                     continue
-                cds = My_Record.Sub_Seq(seq_type='CDS', seq=seq, start=start, end=end, accession_id=accession_id)
+                cds = My_Record.Sub_Seq(seq_type='CDS', seq=seq, start=start, end=end, direction=direction, accession_id=accession_id)
                 ret_record.CDSs.append(cds)
     if len(ret_record.cluster_sequence) > 0 and len(ret_record.CDSs) > 0:
         print("LOG:\tRecord made for %s" % (ret_record.cluster_accession))

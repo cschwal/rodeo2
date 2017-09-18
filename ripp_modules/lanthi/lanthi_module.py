@@ -87,7 +87,7 @@ class Ripp(Virtual_Ripp):
             #For regular expression, check if there is a match that is >10 AA from the end
             if re.search(rex1, self.sequence) and len(re.split(rex1, self.sequence)[-1]) > 10:
                 start, end = [m.span() for m in rex1.finditer(self.sequence)][-1]
-#                end += 16
+#                end += 16 #TODO why +15/16?
             elif re.search(rex2, self.sequence) and len(re.split(rex2,self.sequence)[-1]) > 10:
                 start, end = [m.span() for m in rex2.finditer(self.sequence)][-1]
 #                end += 15
@@ -141,6 +141,7 @@ class Ripp(Virtual_Ripp):
         
         LANC_like = "PF05147"
         Lant_dehyd_C = "PF04738"
+        pfams = []
         bsp_coords = []
         for pfam in self.pfam_2_coords.keys():
             if any(fam in pfam for fam in [LANC_like, Lant_dehyd_C]):
@@ -151,13 +152,11 @@ class Ripp(Virtual_Ripp):
         else:
             scoring_csv_columns.append(0)
         
-        pfams = []
         for pfam_dot in self.pfam_2_coords.keys():
             pfams.append(pfam_dot.split('.')[0])
-            
 #        if "PF05147" in pfams:
 #            scoring_csv_columns.append(1)
-#        else:
+#        else: #TODO why is this gone
 #            scoring_csv_columns.append(999)
         #Cluster contains LanB dehydratase domain (Lant_dehyd_C)
         if "PF04738" in pfams:

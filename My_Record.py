@@ -15,6 +15,7 @@ class My_Record(object):
         self.cluster_accession = ""
         self.cluster_sequence = ""
         self.cluster_length = ""
+        self.query_index = -1
         self.genus = ""
         self.species = ""
         self.CDSs = []
@@ -29,9 +30,13 @@ class My_Record(object):
         
     class Sub_Seq(object):
         """Useful for storing subsequences and their coordinates"""
-        def __init__(self, seq_type, seq, start, end, accession_id=None):
+        def __init__(self, seq_type, seq, start, end, direction, accession_id=None):
             self.start = start
             self.end = end
+            if direction == 1:
+                self.direction = "+"
+            else:
+                self.direction = "-"
             self.sequence = seq
             self.accession_id = accession_id
             self.type = seq_type ##aa, nt etc.
@@ -60,7 +65,10 @@ class My_Record(object):
     def trim_to_n_nucleotides(self, n):
         """Trim the window down to -n nucleotides of the start of the 
         query CDS and +n nucleotides of the end of the CDS"""
-        query_index = self._get_query_index()
+        query_index = self.query_index
+        self.fetch_n = n
+        if query_index == -1:
+            return
         self.window_start = max(0, self.CDSs[query_index].start - n)
         self.window_end = min(len(self.cluster_sequence), 
                               self.CDSs[query_index].end + n)
@@ -69,7 +77,10 @@ class My_Record(object):
     def trim_to_n_orfs(self, n, fetch_distance):
         """Trims the window to +- n CDSs from the query CDS, adding on "fetch_distance"
         nucleotides to each end of the window past the end CDSs"""
-        query_index = self._get_query_index()
+        query_index = self.query_index
+        self.fetch_n = n
+        if query_index == -1:
+            return
         first_cds = max(0, query_index - n)
         last_cds = min(len(self.CDSs)-1, query_index + n)
         self.window_start = min(self.CDSs[first_cds].start, self.CDSs[first_cds].end)
@@ -106,7 +117,8 @@ class My_Record(object):
                 intergenic_sequence = self.Sub_Seq(seq_type='IGS',
                                                    seq=nt_seq, 
                                                    start=start,
-                                                   end=end)
+                                                   end=end,
+                                                   direction=0) #direction doesnt matter
                 self.intergenic_seqs.append(intergenic_sequence)
             start = cds.end
         nt_seq = self.cluster_sequence[start:]
@@ -115,7 +127,8 @@ class My_Record(object):
             intergenic_sequence = self.Sub_Seq(seq_type='IGS',
                                                    seq=nt_seq, 
                                                    start=start,
-                                                   end=end)
+                                                   end=end,
+                                                   direction=0) #direction doesnt matter
             self.intergenic_seqs.append(intergenic_sequence)
         return
         
@@ -169,13 +182,15 @@ class My_Record(object):
                             potential_orf = self.Sub_Seq('ORF',
                                                          aa_sequence,
                                                          end,
-                                                         old_start)
+                                                         old_start,
+                                                         -1)
                         else:
                             end = end + 3
                             potential_orf = self.Sub_Seq('ORF',
                                                          aa_sequence,
                                                          start,
-                                                         end)
+                                                         end,
+                                                         1)
                         if potential_orf.start > potential_orf.end:
                             upstream_sequence = str(self.cluster_sequence[potential_orf.start+4:potential_orf.start+13].reverse_complement())
                         else:
