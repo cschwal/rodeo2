@@ -5,11 +5,11 @@ Created on Mon Aug  7 20:34:38 2017
 
 @author: bryce
 """
-
 import argparse
 import csv
 import nulltype_module
 import entrez_utils
+import main_html_generator
 
 def __main__():
 #==============================================================================
@@ -53,6 +53,9 @@ def __main__():
         try:
             input_handle = open(query)
             for line in input_handle:
+                if len(line) < 4:
+                    print("ERROR:\t \"%s\" is too short to be a query!" % (line))
+                    continue
                 queries.append(line.rstrip())
         except:
             print("ERROR:\tCould not find %s" % (query)) 
@@ -72,7 +75,9 @@ def __main__():
     
     module.main_write_headers(output_filename)
     module.co_occur_write_headers(output_filename)
-    
+    main_html = open("output/" + output_filename + ".html", 'w')
+    main_html_generator.write_header(main_html, args)
+    main_html_generator.write_table_of_contents(main_html, queries)
     ripp_modules = {}
     for peptide_type in peptide_types:
                 list_of_rows = []
@@ -85,13 +90,18 @@ def __main__():
                 elif peptide_type == "sacti":
                     import ripp_modules.sacti.sacti_module as module
                     ripp_modules["sacti"] = module
+                elif peptide_type == "thio":
+                    import ripp_modules.thio.thio_module as module
+                    ripp_modules["thio"] = module
     for query in queries:
         if not any(query[-4:] == extension for extension in ['.gb', '.gbk']):#accession_id
             print("LOG:\tRunning RODEO for %s" % ( query))
             gb_handles = entrez_utils.get_gb_handles(query)
             if gb_handles < 0:
-                print("ERROR:\tentrez_utils.get_gb_handles(%s) returned with value %d"\
-                      % (query, gb_handles))
+                error_message = "ERROR:\tentrez_utils.get_gb_handles(%s) returned with value %d"\
+                      % (query, gb_handles)
+                print(error_message)
+                main_html_generator.write_failed_query(main_html, query, error_message)
                 continue
         else:#gbk file
             try:
@@ -102,8 +112,10 @@ def __main__():
         for handle in gb_handles:
             record = entrez_utils.get_record_from_gb_handle(handle, query)
             if record < 0:
-                print("ERROR:\tentrez_utils.get_record_from_gb_handle(%s) returned with value %d"\
-                  % (query, record))
+                error_message = "ERROR:\tentrez_utils.get_record_from_gb_handle(%s) returned with value %d"\
+                  % (query, record)
+                print(error_message)
+                main_html_generator.write_failed_query(main_html, query, error_message)
                 continue
             if fetch_type == 'orfs':
                 record.trim_to_n_orfs(fetch_n, fetch_distance)
@@ -133,7 +145,7 @@ def __main__():
                 for pfam_acc, desc, e_val in cds.pfam_descr_list:
                     row += [pfam_acc, desc, e_val]
                 module.co_occur_write_row(output_filename, row)
-            
+            main_html_generator.write_record(main_html, record)
     #==============================================================================
     #     All generic orf processing is done now. Moving on to RiPP class specifics
     #==============================================================================
@@ -150,6 +162,7 @@ def __main__():
             if not evaluate_all:
                 #TODO users may want to see what the other entries could be?
                 break
+    main_html.write("</html>")    
     for peptide_type in peptide_types:
         module = ripp_modules[peptide_type]
         module.run_svm()
