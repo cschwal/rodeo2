@@ -11,7 +11,7 @@ import datetime
 import My_Record
 from decimal import Decimal
 
-def write_header(html_file, args):
+def write_header(html_file, args, peptide_type):
     html_file.write("""
     <html>
     <head>
@@ -49,6 +49,7 @@ def write_header(html_file, args):
     html_file.write("""
                         <tr><th scope="row">Peptide Range</th><td>""" + str(args.lower_limit) + "-" + str(args.upper_limit) + """ aa</td></tr>
                         <tr><th scope="row">Fetch Distance</th><td>""" + str(args.overlap) + """bp</td></tr>
+                        <tr><th scope="row">Peptide Type</th><td>""" + peptide_type + """</td></tr>
                   </table>
          </div>
          <div class="col-md-6">
@@ -91,23 +92,23 @@ def draw_CDS_arrow(main_html, cds, sub_by, scale_factor):
     main_html.write("'" + cds.accession_id + " - " + pfamID + " : " + pfam_desc + "'")
     main_html.write(')" onMouseOut="return nd()"/>')
 
-#def draw_orf_arrow(main_html, orf, sub_by, scale_factor, index):
-#    fill_color = "white"
-#    start = orf.start
-#    end = orf.end
-#    arrow_wid = int((start - sub_by) * scale_factor)
-#    arrow_wid3 = int((end - sub_by) * scale_factor)
-#    if arrow_wid3 - arrow_wid < 40:
-#        arrow_wid2 = (arrow_wid + arrow_wid3) /2
-#    else:
-#        arrow_wid2 = arrow_wid3 - 20
-#    letter_x = (arrow_wid + arrow_wid3) / 2
-#    main_html.write('<polygon points="')
-#    main_html.write("%d,10 %d,40 %d,40 %d,50 %d,25 %d,0 %d,10 %d,10" % (arrow_wid, arrow_wid, arrow_wid2, arrow_wid2, arrow_wid3, arrow_wid2, arrow_wid2, arrow_wid))
-#    main_html.write('" style="fill:' + fill_color + ';stroke:black;stroke-width:.5" />' )
-#    main_html.write('<text x="%d"y="32" font-family="sans-serif" font-size="12px" text-anchor="middle" fill="grey">' % (letter_x))
-#    main_html.write(str(index))
-#    main_html.write("</text>")
+def draw_orf_arrow(main_html, orf, sub_by, scale_factor, index):
+    fill_color = "white"
+    start = orf.start
+    end = orf.end
+    arrow_wid = int((start - sub_by) * scale_factor)
+    arrow_wid3 = int((end - sub_by) * scale_factor)
+    if arrow_wid3 - arrow_wid < 40:
+        arrow_wid2 = (arrow_wid + arrow_wid3) /2
+    else:
+        arrow_wid2 = arrow_wid3 - 20
+    letter_x = (arrow_wid + arrow_wid3) / 2
+    main_html.write('<polygon points="')
+    main_html.write("%d,10 %d,40 %d,40 %d,50 %d,25 %d,0 %d,10 %d,10" % (arrow_wid, arrow_wid, arrow_wid2, arrow_wid2, arrow_wid3, arrow_wid2, arrow_wid2, arrow_wid))
+    main_html.write('" style="fill:' + fill_color + ';stroke:black;stroke-width:.5" />' )
+    main_html.write('<text x="%d"y="32" font-family="sans-serif" font-size="12px" text-anchor="middle" fill="grey">' % (letter_x))
+    main_html.write(str(index))
+    main_html.write("</text>")
 
 def draw_orf_diagram(main_html, record):
     main_html.write('<h3>Architecture</h3>\n')
@@ -119,12 +120,12 @@ def draw_orf_diagram(main_html, record):
     for cds in record.CDSs:
         draw_CDS_arrow(main_html, cds, sub_by, scale_factor)
     main_html.write('</svg>')
-#    main_html.write('<svg width="1060" height="53">')
-#    index = 0
-#    for orf in record.intergenic_orfs:
-#        index += 1
-#        draw_orf_arrow(main_html, orf, sub_by, scale_factor, index)
-#    main_html.write('</svg>')
+    main_html.write('<svg width="1060" height="53">')
+    index = 0
+    for orf in record.intergenic_orfs:
+        index += 1
+        draw_orf_arrow(main_html, orf, sub_by, scale_factor, index)
+    main_html.write('</svg>')
     bar_length = scale_factor * 1000
     bar_legx = bar_length + 5
     main_html.write('<svg width="500" height="23">')
@@ -182,21 +183,35 @@ def draw_cds_table(main_html, record):
     main_html.write("</tbody></table><p></p>")
        
 
-def draw_orf_table(main_html, record):
-    main_html.write("""<table class="table table-bordered">
-  <tbody>
-    <tr>
-      <th scope="col">peptide</th>
+def draw_orf_table(main_html, record, peptide_type):
+    if peptide_type in ["lasso", "lanthi", "sacti", "thio"]:
+        main_html.write("""<table class="table table-bordered">
+          <tbody>
+            <tr>
+              <th scope="col">leader</th>
+              <th scope="col">core</th>""")
+    else:
+        main_html.write("""<table class="table table-bordered">
+      <tbody>
+        <tr>
+          <th scope="col">peptide</th>""")
+    main_html.write("""
       <th scope="col">start</th>
       <th scope="col">end</th>
       <th scope="col">dir</th>
+      <th scope="col">score</th>
     </tr>""")
-    for orf in record.intergenic_orfs:
+    for ripp in record.ripps[peptide_type]:
         main_html.write("<tr>\n")
-        main_html.write("<td>%s</td>" % (orf.sequence))
-        main_html.write("<td>%d</td>" % (orf.start))
-        main_html.write("<td>%d</td>" % (orf.end))
-        main_html.write("<td>%s</td>" % (orf.direction))
+        if peptide_type in ["lasso", "lanthi", "sacti", "thio"]:
+            main_html.write("<td>%s</td>" % (ripp.leader))
+            main_html.write("<td>%s</td>" % (ripp.core))
+        else:
+            main_html.write("<td>%s</td>" % (ripp.sequence))
+        main_html.write("<td>%d</td>" % (ripp.start))
+        main_html.write("<td>%d</td>" % (ripp.end))
+        main_html.write("<td>%s</td>" % (ripp.direction))
+        main_html.write("<td>%d</td>" % (ripp.score))
         main_html.write("</tr>\n")
     main_html.write("</tbody></table>")
         
@@ -215,13 +230,14 @@ def write_failed_query(main_html, query, message):
     main_html.write(message)
     main_html.write('<p></p>')
     
-def write_record(main_html, record):
+def write_record(main_html, record, peptide_type):
     #RESULTS FOR xxxx
     #DRAW ORF
     #DRAW ORF scale
     #PUT LINK TO nuc SEQUENCE
     #TABLE of CDS
     #TABLE of ORFs
+    
     main_html.write('<h2 id="%s"> Results for %s [%s]\n' % (record.query_accession_id, record.query_accession_id, record.cluster_genus_species))
     main_html.write('<a href="#header"><small><small>back to top</small></small></a></h2>') #TODO keep for single?
     main_html.write('<p></p>') # TODO why
@@ -229,5 +245,5 @@ def write_record(main_html, record):
     main_html.write('<p></p>') 
     main_html.write('<a href="https://www.ncbi.nlm.nih.gov/nuccore/%s">Link to nucleotide sequence</a>' % (record.cluster_accession))
     draw_cds_table(main_html, record)
-    draw_orf_table(main_html, record)
+    draw_orf_table(main_html, record, peptide_type)
     

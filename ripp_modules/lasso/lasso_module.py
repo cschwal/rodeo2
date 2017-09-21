@@ -13,72 +13,55 @@ import subprocess
 from ripp_modules.lasso.svm import svm_classify as svm
 from Bio.SeqUtils.ProtParam import ProteinAnalysis
 from ripp_modules.Virtual_Ripp import Virtual_Ripp
+
+peptide_type = "lasso"
 index = 0
 
-def write_csv_headers(output_filename):
-    dir_prefix = 'output/lasso/'
+def write_csv_headers(output_dir):
+    dir_prefix = output_dir + '/lasso/'
     if not os.path.exists(dir_prefix):
         os.makedirs(dir_prefix)
-    headers = ['Accession_id', 'Genus/Species', 'Leader', 'Core', 'Start', 'End' , 'Primary Key', 'VALID PRECURSOR', 'Calcd. Lasso Mass (Da)', 'Distance', 'Within 500 nt?', 'Within 150 nt?', 'Further than 1000 nt?', 'Core has 2 or 4 Cys?', 
-     'Leader longer than core?', 'Plausible lasso ring?', 'Leader has GxxxxxT motif?', 'Core starts with G?', 'Core and BGC in same direction?',
-	 'Ratio leader/core < 2 and > 0.5'	, 'Core starts with Cys and even number of Cys?', 'No Gly in core?', 'Core has at least 1 aromatic aa?',
-     'Core has at least 2 aromatic aa?', 'Core has odd number of Cys?', 'Leader has Trp?', 'Leader has Lys?', 'Leader has Cys?',
-     'Cluster has PF00733?', 'Cluster has PF05402?', 'Cluster has PF13471?', 'Leader has LxxxxxT motif?', 'Core has adjacent identical aas (doubles)?',
-     'Core length (aa)', 'Leader length (aa)', 'Precursor length (aa)', 'Leader/core ratio', 'Number of Pro in first 9 aa of core?',
-     'Estimated core charge', 'Estimated leader charge', 'Estimated precursor charge', 'Absolute value of core charge',
-     'Absolute value of leader charge', 'Absolute value of precursor charge',
-     'LEADER A', 'R',	'D',	'N',	'C',	'Q',	'E',	'G',	'H',	'I',	'L',	'K',	'M',	'F',	'P',	'S',	'T',	'W',	'Y',	'V',	
-     'Aromatics', 'Neg charged', 'Pos charged', 'Charged', 'Aliphatic', 'Hydroxyl',
-     'CORE A', 'R',	'D',	'N',	'C',	'Q',	'E',	'G',	'H',	'I',	'L',	'K',	'M',	'F',	'P',	'S',	'T',	'W',	'Y',	'V',	
-     'Aromatics', 'Neg charged', 'Pos charged', 'Charged', 'Aliphatic', 'Hydroxyl',
-     'FIRST CORE RESIDUE A', 'R',	'D',	'N',	'C',	'Q',	'E',	'G',	'H',	'I',	'L',	'K',	'M',	'F',	'P',	'S',	'T',	'W',	'Y',	'V',	
-     'PRECURSOR A', 'R',	'D',	'N',	'C',	'Q',	'E',	'G',	'H',	'I',	'L',	'K',	'M',	'F',	'P',	'S',	'T',	'W',	'Y',	'V',	
-     'Aromatics', 'Neg charged', 'Pos charged', 'Charged', 'Aliphatic', 'Hydroxyl',
-     'Motif1?', 'Motif2?', 'Motif3?', 'Motif4?', 'Motif5?', 'Motif6?', 'Motif7?', 'Motif8?', 'Motif9?',
-     'Motif10?', 'Motif11?', 'Motif12?', 'Motif13?', 'Motif14?', 'Motif15?', 'Motif16?',	
-     'Total motifs hit',	'Score, Motif1',	'Score, Motif2',	'Score, Motif3',	'Score, Motif4',	
-     'Score, Motif5',	'Score, Motif6',	'Score, Motif7',	'Score, Motif8',	'Score, Motif9',	
-     'Score, Motif10', 'Score, Motif11', 'Score, Motif12', 'Score, Motif13', 'Score, Motif14',	
-     'Score, Motif15', 'Score, Motif16', 'Sum of MEME scores',
-     'No Motifs?', 'Alternate Start Codon?', 'Total Score', 'SVM Classification']
+    svm_headers = 'Precursor Index,classification,Calcd. Lasso Mass (Da), Distance,Within 500 nt?,Within 150 nt?,Further than 1000 nt?,Core has 2 or 4 Cys?,Leader longer than core?,Plausible lasso ring?,Leader has GxxxxxT motif?,Core starts with G?,Core and BGC in same direction?,Raito leader/core < 2 and > 0.5,Core starts with Cys and even number of Cys?,No Gly in core?,Core has at least 1 aromatic aa?,Core has at least 2 aromatic aa?,Core has odd number of Cys?,Leader has Trp?,Leader has Lys?,Leader has Cys?,Cluster has PF00733?,Cluster has PF05402?,Cluster has PF13471?,Leader has LxxxxxT motif?,Core has adjacent identical aas (doubles)?,Core length (aa),Leader length (aa),Precursor length (aa),Leader/core ratio,Number of Pro in first 9 aa of core?,Estimated core charge,Estimated leader charge,Estimated precursor charge,Absolute value of core charge,Absolute value of leader charge,Absolute value of precursor charge,LEADER A,R,D,N,C,Q,E,G,H,I,L,K,M,F,P,S,T,W,Y,V,Aromatics,Neg charged,Pos charged,Charged,Aliphatic,Hydroxyl,CORE A,R,D,N,C,Q,E,G,H,I,L,K,M,F,P,S,T,W,Y,V,Aromatics,Neg charged,Pos charged,Charged,Aliphatic,Hydroxyl,FIRST CORE RESIDUE A,R,D,N,C,Q,E,G,H,I,L,K,M,F,P,S,T,W,Y,V, PRECURSOR A,R,D,N,C,Q,E,G,H,I,L,K,M,F,P,S,T,W,Y,V,Aromatics,Neg charged,Pos charged,Charged,Aliphatic,Hydroxyl,Motif1?,Motif2?,Motif3?,Motif4?,Motif5?,Motif6?,Motif7?,Motif8?,Motif9?,Motif10?,Motif11?,Motif12?,Motif13?,Motif14?,Motif15?,Motif16?,Total motifs hit,"Score Motif1","Score Motif2","Score Motif3","Score Motif4","Score Motif5","Score Motif6","Score Motif7","Score Motif8","Score Motif9","Score Motif10","Score Motif11","Score Motif12","Score Motif13","Score Motif14","Score Motif15","Score Motif16",Sum of MEME scores,No Motifs?,Alternate Start Codon?'
+    svm_headers = svm_headers.split(',')
+    features_headers = ['Accession_id', 'Genus/Species', 'Leader', 'Core', 'Start', 'End' , "Total Score", "Valid Precursor"] + svm_headers 
     features_csv_file = open(dir_prefix + "temp_features.csv", 'w')
     svm_csv_file = open("ripp_modules/lasso/svm/fitting_set.csv", 'w')
     features_writer = csv.writer(features_csv_file)
     svm_writer = csv.writer(svm_csv_file)
-    features_writer.writerow(headers)
-    svm_writer.writerow(headers[6:-2])#Don't include accession_id, genus/species,
+    features_writer.writerow(features_headers)
+    svm_writer.writerow(svm_headers)#Don't include accession_id, genus/species,
                                         #leader, core sequence, score, or svm classification
 
 
-def ripp_write_rows(output_filename, accession_id, genus_species, list_of_rows):
-    dir_prefix = 'output/lasso/'
+def ripp_write_rows(output_dir, accession_id, genus_species, list_of_rows):
+    dir_prefix = output_dir + '/lasso/'
     global index
     features_csv_file = open(dir_prefix + "temp_features.csv", 'a')
     svm_csv_file = open("ripp_modules/lasso/svm/fitting_set.csv", 'a')
     features_writer = csv.writer(features_csv_file)
     svm_writer = csv.writer(svm_csv_file)
     for row in list_of_rows:
-        features_writer.writerow([accession_id, genus_species] + row[0:4] + [index, ''] + row[4:])
-        svm_writer.writerow([index, ''] + row[4:-1]) #Don't include accession_id, leader, core sequence, start, end, or score
+        features_writer.writerow([accession_id, genus_species] + row[0:5] + ["valid_precursor_placeholder", index, ''] + row[5:])
+        svm_writer.writerow([index, ''] + row[5:]) #Don't include accession_id, leader, core sequence, start, end, or score
         index += 1
         
-def run_svm():
+def run_svm(output_dir):
     svm.run_svm()
     svm_output_reader = csv.reader(open("ripp_modules/lasso/svm/fitting_results.csv"))
-    final_output_writer = csv.writer(open("output/lasso/lasso_features.csv", 'w'))
-    features_reader = csv.reader(open("output/lasso/temp_features.csv"))
+    final_output_writer = csv.writer(open(output_dir + "/lasso/lasso_features.csv", 'w'))
+    features_reader = csv.reader(open(output_dir + "/lasso/temp_features.csv"))
     header_row = features_reader.next() #skip header
     final_output_writer.writerow(header_row)
     for row in features_reader:
         svm_output = svm_output_reader.next()[1]
-        row.append(svm_output)
+        row[9] = svm_output
         if int(svm_output) == 1:
-            row[-2] = int(row[-2]) + 10
-        if int(row[-2]) > 17: #CUTOFF
+            row[6] = int(row[6]) + 10
+        if int(row[6]) > 17: #CUTOFF
             row[7] = 'Y'
         else:
             row[7] = 'N'
-        final_output_writer.writerow(row)
+        final_output_writer.writerow(row)   
     
 class Ripp(Virtual_Ripp):
     def __init__(self, 
@@ -473,8 +456,7 @@ class Ripp(Virtual_Ripp):
             self.score += -1
         else:
             scoring_csv_columns.append(0)
-        scoring_csv_columns.append(self.score)
-        self.csv_columns += scoring_csv_columns
+        self.csv_columns += [self.score] +  scoring_csv_columns
 
 def execute(commands, input=None):
     "Execute commands in a system-independent manner"

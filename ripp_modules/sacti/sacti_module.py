@@ -13,10 +13,12 @@ from ripp_modules.lanthi.svm import svm_classify as svm
 from Bio.SeqUtils.ProtParam import ProteinAnalysis
 from ripp_modules.Virtual_Ripp import Virtual_Ripp
 import hmmer_utils
+
+peptide_type = "sacti"
 index = 0
 
-def write_csv_headers(output_filename):
-    dir_prefix = 'output/sacti/'
+def write_csv_headers(output_dir):
+    dir_prefix = output_dir + '/sacti/'
     if not os.path.exists(dir_prefix):
         os.makedirs(dir_prefix)
     svm_headers = 'Precursor Index,Classification,Precursor peptide mass,Leader peptide mass,Core peptide mass,Distance,Within 500 nt?,Within 150 nt?,Further than 1000 nt?,Ratio of N-term to 1st C 0.25<x<0.60,Ratio of N-term to 1st C <0.25 or >0.60,Three or more C,Less than 3 C,CXXXXXC,CXXXC,CXXC,CXC,CC,CCC,No cys in last 1/4th?,"2 Cys in first 2/3rds and 1 Cys in last 1/3rd",Peptide matches SboA hmm,Peptide matches SkfA hmm,Peptide matches SCIFF hmm,Cluster has PF05402 (PqqD/RRE),Cluster has PF13186 (SPASM),PF04055 (rSAM) domain start,BOOL peptidase PF05193,BOOL S8 peptidase PF00082,BOOL S41 peptidase PF03572,BOOL M16 peptidase PF00675,BOOL ABC trans PF00005,BOOL ABC mem PF00664,BOOL response reg PF00072,BOOL maj facilit PF07690,BOOL ATPase PF13304,BOOL Fer4_12 PF13353,BOOL rSAM PF04055,no  recognized peptidase,C-terminal portion is < 0.35 or > 0.65,C-terminal portion is > 0.35 and < 0.65,SS profile sum > 1,Leader length (aa),Precursor length (aa),Core length (aa),Core/precursor ratio,Core/leader ratio,Ratio of N-terminus to first Cys,number of CxnC,avg dist between CxnC,Ratio from last CxnC to C-terminus,SS profile 1 aa,SS profile 2 aa,SS profile 3 aa,SS profile 4 aa,SS profile 5 aa,SS profile 6 aa,A,R,D,N,C,Q,E,G,H,I,L,K,M,F,P,S,T,W,Y,V,Aromatics,Neg charged,Pos charged,Charged,Aliphatic,Hydroxyl,A,R,D,N,C,Q,E,G,H,I,L,K,M,F,P,S,T,W,Y,V,Aromatics,Neg charged,Pos charged,Charged,Aliphatic,Hydroxyl,A,R,D,N,C,Q,E,G,H,I,L,K,M,F,P,S,T,W,Y,V,Aromatics,Neg charged,Pos charged,Charged,Aliphatic,Hydroxyl,peptidase PF05193,CAAX immunity PF02517,S8 peptidase PF00082,S41 peptidase PF03572,M16 peptidase PF00675,M50 peptidase PF02163,S9 peptidase PF00326,ABC trans PF00005,ABC mem PF00664,response reg PF00072,maj facilit PF07690,HATPase PF02518,ATPase PF13304,Fer4_12 PF13353,rSAM PF04055,Length of rSAM maturase'
@@ -29,8 +31,8 @@ def write_csv_headers(output_filename):
     features_writer.writerow(features_headers)
     svm_writer.writerow(svm_headers)
     
-def ripp_write_rows(output_filename, accession_id, genus_species, list_of_rows):
-    dir_prefix = 'output/sacti/'
+def ripp_write_rows(output_dir, accession_id, genus_species, list_of_rows):
+    dir_prefix = output_dir + '/sacti/'
     global index
     features_csv_file = open(dir_prefix + "temp_features.csv", 'a')
     svm_csv_file = open("ripp_modules/sacti/svm/fitting_set.csv", 'a')
@@ -42,11 +44,11 @@ def ripp_write_rows(output_filename, accession_id, genus_species, list_of_rows):
         index += 1
 
 
-def run_svm():
+def run_svm(output_dir):
     svm.run_svm()
     svm_output_reader = csv.reader(open("ripp_modules/sacti/svm/fitting_results.csv"))
-    final_output_writer = csv.writer(open("output/sacti/sacti_features.csv", 'w'))
-    features_reader = csv.reader(open("output/sacti/temp_features.csv"))
+    final_output_writer = csv.writer(open(output_dir + "/sacti/sacti_features.csv", 'w'))
+    features_reader = csv.reader(open(output_dir + "/sacti/temp_features.csv"))
     header_row = features_reader.next() #skip header
     final_output_writer.writerow(header_row)
     for row in features_reader:

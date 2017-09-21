@@ -13,10 +13,12 @@ from ripp_modules.lanthi.svm import svm_classify as svm
 from Bio.SeqUtils.ProtParam import ProteinAnalysis
 from ripp_modules.Virtual_Ripp import Virtual_Ripp
 import hmmer_utils
+
+peptide_type = "lanthi"
 index = 0
 
-def write_csv_headers(output_filename):
-    dir_prefix = 'output/lanthi/'
+def write_csv_headers(output_dir):
+    dir_prefix = output_dir + '/lanthi/'
     if not os.path.exists(dir_prefix):
         os.makedirs(dir_prefix)
     svm_headers = 'PK,Classification,F?LD,S????C,T????C,S?????C,T?????C,Within 500 nt?,Cluster contains PF04738,Cluster contains PF05147,Cluster LACKS PF04738,Cluster LACKS PF05147,Cluster contains PF14028,Cluster contains PF00082,Cluster contains PF03412,Cluster contains PF00005,Cluster contains PF02624,Cluster contains PF00899,Cluster contains PF02052,Cluster contains PF08130,Precursor mass < 4000,Core mass < 2000,Peptide hits cl03420 (Gallidermin),Peptide hits TIGR03731 (lantibio_gallid),Peptide hits cl22812 (lanti_SCO0268),Peptide hits TIGR04363 (LD_lanti_pre),Peptide hits cl06940 (Antimicrobial18),Peptide hits PF02052 (Gallidermin),Peptide hits PF08130 (Antimicrobial18),Precursor peptide mass (unmodified),Leader peptide mass (unmodified),Core peptide mass (unmodified),Length of Leader,Length of Core,Length of precursor,Leader / core ratio,Core >= 35,Has repeating C motifs (not in last 3 residues),Leader > 4 neg charge motifs,Leader net neg charge,Leader FxLD,C-terminal CC,core DGCGxTC motif,core SFNS motif,core SxxLC motif,core CTxGC motif,core TPGC motif,core SFNS?C,Core Cys <3,Core Cys <2,No Core Cys residues,No Core Ser residues,No Core Thr residues,LS max >4,LS max <3,LS 4-membered ring >2,LS 5-membered ring >2,LS 6-membered ring,LS 7-membered ring,LS 8-membered ring,MEME/FIMO,LS max ring number,LS lan4,LS lan5,LS lan6,LS lan7,LS lan8,Ratio of Cys to sum of Ser/Thr,Ratio of Cys/Ser/Thr to len of core,Log10 MEME/FIMO score,log10 MEME motif 1,MEME motif 2,MEME motif 3,MEME motif 4,MEME motif 5,A,R,D,N,C,Q,E,G,H,I,L,K,M,F,P,S,T,W,Y,V,Aromatics,Neg charged,Pos charged,Charged,Aliphatic,Hydroxyl,A,R,D,N,C,Q,E,G,H,I,L,K,M,F,P,S,T,W,Y,V,Aromatics,Neg charged,Pos charged,Charged,Aliphatic,Hydroxyl,A,R,D,N,C,Q,E,G,H,I,L,K,M,F,P,S,T,W,Y,V,Aromatics,Neg charged,Pos charged,Charged,Aliphatic,Hydroxyl'  
@@ -29,8 +31,8 @@ def write_csv_headers(output_filename):
     features_writer.writerow(features_headers)
     svm_writer.writerow(svm_headers)
     
-def ripp_write_rows(output_filename, accession_id, genus_species, list_of_rows):
-    dir_prefix = 'output/lanthi/'
+def ripp_write_rows(output_dir, accession_id, genus_species, list_of_rows):
+    dir_prefix = output_dir + '/lanthi/'
     global index
     features_csv_file = open(dir_prefix + "temp_features.csv", 'a')
     svm_csv_file = open("ripp_modules/lanthi/svm/fitting_set.csv", 'a')
@@ -42,11 +44,11 @@ def ripp_write_rows(output_filename, accession_id, genus_species, list_of_rows):
         index += 1
 
 
-def run_svm():
+def run_svm(output_dir):
     svm.run_svm()
     svm_output_reader = csv.reader(open("ripp_modules/lanthi/svm/fitting_results.csv"))
-    final_output_writer = csv.writer(open("output/lanthi/lanthi_features.csv", 'w'))
-    features_reader = csv.reader(open("output/lanthi/temp_features.csv"))
+    final_output_writer = csv.writer(open(output_dir + "/lanthi/lanthi_features.csv", 'w'))
+    features_reader = csv.reader(open(output_dir + "/lanthi/temp_features.csv"))
     header_row = features_reader.next() #skip header
     final_output_writer.writerow(header_row)
     for row in features_reader:

@@ -5,11 +5,32 @@ Created on Mon Aug  7 20:34:38 2017
 
 @author: bryce
 """
+import logging
+import shutil
+import os
 import argparse
 import csv
 import nulltype_module
 import entrez_utils
 import main_html_generator
+import ripp_html_generator
+
+VERBOSITY = logging.DEBUG
+
+logger = logging.getLogger("MAIN")
+logger.setLevel(VERBOSITY)
+# create console handler and set level to debug
+ch = logging.StreamHandler()
+ch.setLevel(VERBOSITY)
+
+# create formatter
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# add formatter to ch
+ch.setFormatter(formatter)
+
+# add ch to logger
+logger.addHandler(ch)
 
 def __main__():
 #==============================================================================
@@ -39,11 +60,27 @@ def __main__():
                         help='Type(s) of peptides to score.')
     parser.add_argument('-ea', '--evaluate_all', type=bool, default = False,
                         help='Evaluate all duplicates if accession id corresponds to duplicate entries')
-    parser.add_argument('-out', '--output_filename', type=str, default = "rodeo_out",
-                        help='Output filename')
+    parser.add_argument('-out', '--output_dir', type=str, default = "rodeo_out",
+                        help='Name of output folder')
     args, _ = parser.parse_known_args()
+    
+    overwriting_folder = False
+    try:
+        os.mkdir(args.output_dir)
+    except:
+        overwriting_folder = True
+        shutil.rmtree(args.output_dir)
+        os.mkdir(args.output_dir)
+    
+    if overwriting_folder:
+        logger.warning("Overwriting %s folder." % (args.output_dir))
+        
+#    global LOG_FILENAME
+#    LOG_FILENAME = args.output_name + "/LOG.txt"
+#    logging.basicConfig(filename=LOG_FILENAME, level=logging.debug)
+        
     if not any(args.fetch_type==ft for ft in ['orfs', 'nucs']):
-        print("ERROR:\t Invalid argument for -ft/-fetch_type")
+        logger.critical("Invalid argument for -ft/-fetch_type")
         return None
     query = args.query
     queries = []
@@ -54,11 +91,11 @@ def __main__():
             input_handle = open(query)
             for line in input_handle:
                 if len(line) < 4:
-                    print("ERROR:\t \"%s\" is too short to be a query!" % (line))
+                    logger.error("\"%s\" is too short to be a query!" % (line))
                     continue
                 queries.append(line.rstrip())
         except:
-            print("ERROR:\tCould not find %s" % (query)) 
+            logger.critical("Could not find %s" % (query)) 
     else:
         queries.append(query)
     min_aa_seq_length = args.lower_limit
@@ -70,51 +107,55 @@ def __main__():
     window_size = args.window_size
     peptide_types = args.peptide_types
     evaluate_all = args.evaluate_all
-    output_filename = args.output_filename
+    output_dir = args.output_dir
     module = nulltype_module
     
-    module.main_write_headers(output_filename)
-    module.co_occur_write_headers(output_filename)
-    main_html = open("output/" + output_filename + ".html", 'w')
+        
+    module.main_write_headers(output_dir)
+    module.co_occur_write_headers(output_dir)
+    main_html = open(output_dir + "/main_results.html", 'w')
     main_html_generator.write_header(main_html, args)
     main_html_generator.write_table_of_contents(main_html, queries)
     ripp_modules = {}
+    ripp_htmls = {}
+    records = []
     for peptide_type in peptide_types:
                 list_of_rows = []
                 if peptide_type == "lasso":
                     import ripp_modules.lasso.lasso_module as module
-                    ripp_modules["lasso"] = module
                 elif peptide_type == "lanthi":
                     import ripp_modules.lanthi.lanthi_module as module
-                    ripp_modules["lanthi"] = module
                 elif peptide_type == "sacti":
                     import ripp_modules.sacti.sacti_module as module
-                    ripp_modules["sacti"] = module
                 elif peptide_type == "thio":
                     import ripp_modules.thio.thio_module as module
-                    ripp_modules["thio"] = module
+                else:
+                    continue
+                os.mkdir(output_dir + "/" + peptide_type)
+                ripp_modules[peptide_type] = module
+                ripp_htmls[peptide_type] = open(output_dir + "/" + peptide_type + "/" + peptide_type + "_results.html", 'w')
+                ripp_html_generator.write_header(ripp_htmls[peptide_type], args, peptide_type)
+    
     for query in queries:
         if not any(query[-4:] == extension for extension in ['.gb', '.gbk']):#accession_id
-            print("LOG:\tRunning RODEO for %s" % ( query))
+            logger.info("Running RODEO for %s" % ( query))
             gb_handles = entrez_utils.get_gb_handles(query)
             if gb_handles < 0:
                 error_message = "ERROR:\tentrez_utils.get_gb_handles(%s) returned with value %d"\
                       % (query, gb_handles)
-                print(error_message)
                 main_html_generator.write_failed_query(main_html, query, error_message)
                 continue
         else:#gbk file
             try:
                 gb_handles = [open(query)]
             except Exception as e:
-                print(e)
+                logger.error(e)
                 continue
         for handle in gb_handles:
             record = entrez_utils.get_record_from_gb_handle(handle, query)
             if record < 0:
                 error_message = "ERROR:\tentrez_utils.get_record_from_gb_handle(%s) returned with value %d"\
                   % (query, record)
-                print(error_message)
                 main_html_generator.write_failed_query(main_html, query, error_message)
                 continue
             if fetch_type == 'orfs':
@@ -134,7 +175,7 @@ def __main__():
                     direction = "-"
                 row = [query, record.cluster_genus_species, record.cluster_accession, 
                        orf.start, orf.end, direction, orf.sequence]
-                module.main_write_row(output_filename, row)
+                module.main_write_row(output_dir, row)
             for cds in record.CDSs:
                 if cds.start < cds.end:
                     direction = "+"
@@ -144,7 +185,7 @@ def __main__():
                        cds.accession_id, cds.start, cds.end, direction]
                 for pfam_acc, desc, e_val in cds.pfam_descr_list:
                     row += [pfam_acc, desc, e_val]
-                module.co_occur_write_row(output_filename, row)
+                module.co_occur_write_row(output_dir, row)
             main_html_generator.write_record(main_html, record)
     #==============================================================================
     #     All generic orf processing is done now. Moving on to RiPP class specifics
@@ -152,18 +193,27 @@ def __main__():
             for peptide_type in peptide_types:
                 list_of_rows = []
                 module = ripp_modules[peptide_type]
-                module.write_csv_headers(output_filename)
+                module.write_csv_headers(output_dir)
                 record.set_ripps(module)
                 record.score_ripps(module)
-                for ripp in record.ripps:
+                for ripp in record.ripps[peptide_type]:
                     list_of_rows.append(ripp.csv_columns)
-                module.ripp_write_rows(output_filename, record.cluster_accession, #cluster acc or query acc?
+                module.ripp_write_rows(output_dir, record.cluster_accession, #cluster acc or query acc?
                                        record.cluster_genus_species, list_of_rows)
+            records.append(record)
+            
             if not evaluate_all:
                 #TODO users may want to see what the other entries could be?
                 break
     main_html.write("</html>")    
     for peptide_type in peptide_types:
         module = ripp_modules[peptide_type]
-        module.run_svm()
-__main__()
+        module.run_svm(output_dir)
+    
+    for record in records:
+        record.update_score_w_svm(output_dir)
+        for peptide_type in peptide_types: 
+            ripp_html_generator.write_record(ripp_htmls[peptide_type], record, peptide_type)
+
+if __name__ == '__main__':
+    __main__()

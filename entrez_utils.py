@@ -9,6 +9,23 @@ from Bio import Entrez, SeqIO
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna
 from My_Record import My_Record
+import logging
+from rodeo_main import VERBOSITY
+
+logger = logging.getLogger(__name__)
+logger.setLevel(VERBOSITY)
+# create console handler and set level to debug
+ch = logging.StreamHandler()
+ch.setLevel(VERBOSITY)
+
+# create formatter
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# add formatter to ch
+ch.setFormatter(formatter)
+
+# add ch to logger
+logger.addHandler(ch)
 
 Entrez.email = 'kille2@illinois.edu'
 
@@ -27,14 +44,14 @@ def get_gb_handles(prot_accession_id):
             record = Entrez.read(Entrez.esearch("protein",term=prot_accession_id))
             total_count = record["Count"]
             if int(total_count) < 1:
-                print("ERROR:\tEsearch returns no results for query " + prot_accession_id)
+                logger.error("Esearch returns no results for query " + prot_accession_id)
                 return -1
                 
             IdList = record["IdList"]
             link_records = Entrez.read(Entrez.elink(dbfrom="protein",db="nuccore",id=IdList))
             nuccore_ids=[]
             if len(link_records[0]['LinkSetDb']) == 0:
-                print("ERROR:\t%s has no nuccore entries..." % (prot_accession_id))
+                logger.error("%s has no nuccore entries..." % (prot_accession_id))
                 return -2
             for record in link_records[0]['LinkSetDb'][0]['Link']:
                 nuccore_ids.append(record['Id']) 
@@ -53,7 +70,8 @@ def get_gb_handles(prot_accession_id):
                 handles.append(orig_handle)
             return handles
         except Exception as e:
-            print(e)
+            logger.error("Entrez fails with error message  \"%s\"" % (e))
+    logger.error("Failed to reach Entrez database or Entrez failed to respond")
     return -3
 
 #gb_handle should only be a handle to ONE query 
@@ -81,18 +99,16 @@ def get_record_from_gb_handle(gb_handle, nuccore_accession_id):
                     if nuccore_accession_id == accession_id:
                         ret_record.query_index = len(ret_record.CDSs)
                 else:
-                    #print("ERROR:\tCouldn't get accession ID for CDS") 
                     continue
                 if 'translation' in feature.qualifiers.keys():
                     seq = feature.qualifiers['translation'][0]
                 else:
-                    #print("ERROR:\tCouldn't get sequence for CDS") 
                     continue
                 cds = My_Record.Sub_Seq(seq_type='CDS', seq=seq, start=start, end=end, direction=direction, accession_id=accession_id)
                 ret_record.CDSs.append(cds)
     if len(ret_record.cluster_sequence) > 0 and len(ret_record.CDSs) > 0:
-        print("LOG:\tRecord made for %s" % (ret_record.cluster_accession))
+        logger.info("Record made for %s" % (ret_record.cluster_accession))
         return ret_record
     else:
-        print("ERROR:\tCould not process gb file for %s" % (ret_record.cluster_accession))
+        logger.error("Could not process gb file for %s" % (ret_record.cluster_accession))
         return -1

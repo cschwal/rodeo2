@@ -14,10 +14,11 @@ from Bio.SeqUtils.ProtParam import ProteinAnalysis
 from ripp_modules.Virtual_Ripp import Virtual_Ripp
 import hmmer_utils
 
+peptide_type = "thio"
 index = 0
 
-def write_csv_headers(output_filename):
-    dir_prefix = 'output/thio/'
+def write_csv_headers(output_dir):
+    dir_prefix = output_dir + '/thio/'
     if not os.path.exists(dir_prefix):
         os.makedirs(dir_prefix)
     svm_headers = 'PK,Classification,Contains TOMM YcaO PF02624,Contains LanB Nterm PF04738,Contains LanB Cterm PF14028,Contains TOMM dehy PF00881,Contains rSAM MTase PF04055,Contains P450 PF00067,Contains ABC trans1 PF00005,Contains ABC trans2 PF01061,Contains ABC trans3 PF12698,Contains abhydrolase1 PF12697,Contains abhydrolase2 PF00561,CSS motif,CTT motif,SS motif,SSS motif,SSSS motif,CC motif,CCC motif,CCCC motif,TT motif,TTT motif,TTTT motif,No Cys core residues,No Ser core residues,No Thr core residues,Core mass < 2100,Sum of repeating Cys/Ser/Thr > 4,Avg heterocycle block length > 3,Leader net charge < 5,Leader net charge > 0,Leader contains a Cys?,Peptide terminates Cys/Ser/Thr,Core contains >= 2 positive residues,Heterocycle ratio > 0.4,Number of core repeating blocks,Number of core repeating Cys,Number of core repeating Ser,Number of core repeating Thr,Number of core heterocycle blocks,avg core heterocycle block length,Precursor peptide mass (unmodified),Leader peptide mass (unmodified),Core peptide mass (unmodified),Length of Precursor,Length of Leader,Length of Core,Leader / core ratio,Heterocycle residues/lenth of core,A,R,D,N,C,Q,E,G,H,I,L,K,M,F,P,S,T,W,Y,V,Aromatics,Neg charged,Pos charged,Charged,Aliphatic,Hydroxyl,A,R,D,N,C,Q,E,G,H,I,L,K,M,F,P,S,T,W,Y,V,Aromatics,Neg charged,Pos charged,Charged,Aliphatic,Hydroxyl,A,R,D,N,C,Q,E,G,H,I,L,K,M,F,P,S,T,W,Y,V,Aromatics,Neg charged,Pos charged,Charged,Aliphatic,Hydroxyl'
@@ -30,8 +31,8 @@ def write_csv_headers(output_filename):
     features_writer.writerow(features_headers)
     svm_writer.writerow(svm_headers)
 
-def ripp_write_rows(output_filename, accession_id, genus_species, list_of_rows):
-    dir_prefix = 'output/thio/'
+def ripp_write_rows(output_dir, accession_id, genus_species, list_of_rows):
+    dir_prefix = output_dir + '/thio/'
     global index
     features_csv_file = open(dir_prefix + "temp_features.csv", 'a')
     svm_csv_file = open("ripp_modules/thio/svm/fitting_set.csv", 'a')
@@ -42,11 +43,11 @@ def ripp_write_rows(output_filename, accession_id, genus_species, list_of_rows):
         svm_writer.writerow([index, ''] + row[5:]) #Don't include accession_id, leader, core sequence, start, end, or score
         index += 1
         
-def run_svm():
+def run_svm(output_dir):
     svm.run_svm()
     svm_output_reader = csv.reader(open("ripp_modules/thio/svm/fitting_results.csv"))
-    final_output_writer = csv.writer(open("output/thio/thio_features.csv", 'w'))
-    features_reader = csv.reader(open("output/thio/temp_features.csv"))
+    final_output_writer = csv.writer(open(output_dir + "/thio/thio_features.csv", 'w'))
+    features_reader = csv.reader(open(output_dir + "/thio/temp_features.csv"))
     header_row = features_reader.next() #skip header
     final_output_writer.writerow(header_row)
     for row in features_reader:
@@ -96,6 +97,8 @@ class Ripp(Virtual_Ripp):
             self.leader = ''
             return
         self.split_index = end
+        if len(self.sequence) - end < 5 or end < 5:
+            end = int(.25 * len(self.sequence))
         self.leader = self.sequence[:end]
         self.core = self.sequence[end:]
         
@@ -286,7 +289,12 @@ class Ripp(Virtual_Ripp):
         #Length of Core
         columns.append(len(self.core))
         #Ratio of length of leader / length of core
-        columns.append(float(len(self.core)) / float(len(self.leader)))
+        try:
+            columns.append(float(len(self.core)) / float(len(self.leader)))
+        except:
+            print(self.leader)
+            print(self.core)
+            print(self.sequence)
         #Ratio of heterocyclizable  residues / length of core
         columns.append(float(sum([self.core.count(aa) for aa in "CST"])) / len(self.core))
         #Estimated core charge at neutral pH

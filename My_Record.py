@@ -6,6 +6,7 @@ Created on Mon Aug  7 21:09:19 2017
 @author: bryce
 """
 import hmmer_utils
+import csv
 
 class My_Record(object):
     """ """
@@ -25,8 +26,7 @@ class My_Record(object):
         self.window_end = 0
         self.start_codons = ['ATG','GTG', 'TTG']
         self.stop_codons = ['TAA','TAG','TGA']
-        self.ripps = []
-        self.ripp_type_to_ripps = {}
+        self.ripps = {}
         
     class Sub_Seq(object):
         """Useful for storing subsequences and their coordinates"""
@@ -209,15 +209,33 @@ class My_Record(object):
         return
     
     def set_ripps(self, module):
-        self.ripps = []
+        self.ripps[module.peptide_type] = []
         for orf in self.intergenic_orfs:
             ripp = module.Ripp(orf.start, orf.end, str(orf.sequence), orf.upstream_sequence, self.pfam_2_coords)
             if ripp.split_index != -1:
-                self.ripps.append(ripp)
+                self.ripps[module.peptide_type].append(ripp)
                 
     def score_ripps(self, module):
-        for ripp in self.ripps:
+        for ripp in self.ripps[module.peptide_type]:
             ripp.set_score()
+                
+    def update_score_w_svm(self, output_dir):
+        """Order should be preserved. Goes through file and updates scores"""
+        for peptide_type in self.ripps.keys():
+            score_reader = csv.reader(open(output_dir + '/' + peptide_type + '/' +\
+                                           peptide_type + '_features.csv')) 
+            score_reader.next()
+            
+            score_reader_done = False
+            for ripp in self.ripps[peptide_type]:
+                if not score_reader_done:
+                    try:
+                        line = score_reader.next()
+                    except:
+                        score_reader_done = True
+                if score_reader_done:
+                    print(ripp.sequence)
+                ripp.score = int(line[6])
                 
                     
     def print_info(self):
