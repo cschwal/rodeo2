@@ -17,6 +17,7 @@ from ripp_modules.Virtual_Ripp import Virtual_Ripp
 peptide_type = "lasso"
 index = 0
 
+
 def write_csv_headers(output_dir):
     dir_prefix = output_dir + '/lasso/'
     if not os.path.exists(dir_prefix):
@@ -80,59 +81,6 @@ class Ripp(Virtual_Ripp):
         self.set_monoisotopic_mass()
         self.csv_columns = [self.leader, self.core, self.start, self.end]
         
-    #Used for scoring to determine minimum distance from this ripp to a set
-    #of coordinates.
-    #For example, if coords_list was a list of the coordinates of some pfam,
-    #this function would return the distance to the closest coordinate of that pfam
-#    def get_min_dist(self, coords_list):
-#        if coords_list == []:
-#            return None
-#        min_dist = abs(self.start-coords_list[0][0])
-#        for coord in coords_list:
-#            min_dist = min(abs(self.start-coord[0]), abs(self.end-coord[0]),
-#                           abs(self.start-coord[1]), abs(self.end-coord[1]),
-#                           min_dist)
-#        return min_dist
-#    
-#    #TODO error catching
-#    
-#    
-#        
-#    def run_fimo_simple(self):
-#        "Run FIMO"
-#        #TODO change to temp file
-#        with open("TEMP.seq", 'w+') as tfile:
-#            tfile.write(">query\n%s" % (self.sequence))
-#    
-##       command = ["$HOME/meme/bin/fimo", "--text", "--verbosity", "1", self.query_motif_file, tfile.name]
-#        command = ["$HOME/meme/bin/fimo --text --verbosity 1 " + self.query_motif_file + " " + "TEMP.seq"]
-#        try:
-#            out, err, retcode = execute(command)
-#        except OSError:
-#            print("ERROR:\tCould not run FIMO")
-#            return ""
-#        if retcode != 0:
-#            print('FIMO returned %d: %r while searching %r', retcode,
-#                            err, self.query_motif_file)
-#            return []
-#        return out   
-
-    
-####################################################################################
-################################ Lasso functions ###################################
-####################################################################################
-
-        
-#    def set_leader_core(self):
-#        self.split()
-#        if self.split_index == -1:
-#            self.core = self.sequence
-#            self.leader = ''
-#        else:
-#            self.leader = self.sequence[0:self.split_index]
-#            self.core = self.sequence[self.split_index:]
-        
-        
     def set_split(self):
         #TODO add more regexes
         match = re.search('(T[A-Z]{7,10}(D|E)[A-Z]{5,20}\*)', self.sequence + '*')
@@ -142,11 +90,11 @@ class Ripp(Virtual_Ripp):
             self.split_index = match.start() + 2
         
         if self.split_index == -1:
-            self.core = self.sequence
-            self.leader = ''
-        else:
-            self.leader = self.sequence[0:self.split_index]
-            self.core = self.sequence[self.split_index:]
+            self.valid_split = False
+            self.split_index = int(.25*len(self.sequence))
+        
+        self.leader = self.sequence[0:self.split_index]
+        self.core = self.sequence[self.split_index:]
                 
     def get_fimo_score(self):
         #TODO better way for this?

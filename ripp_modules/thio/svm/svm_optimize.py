@@ -53,7 +53,7 @@ import csv
 
 from sklearn import svm
 from sklearn import preprocessing
-from sklearn import cross_validation
+from sklearn.model_selection import train_test_split
 from sklearn import metrics
 
 # CONFIGURATION OPTIONS
@@ -154,9 +154,9 @@ def main():
         for C_option in C_options:
             for gamma_option in gamma_options:
                 clf = svm.SVC(kernel=kernel_option,class_weight=class_weight_option,C=C_option,gamma=gamma_option)
-                prec = cross_validation.cross_val_score(clf, training_data_refined, training_data_classifications, cv=fold, scoring='precision')
-                recd = cross_validation.cross_val_score(clf, training_data_refined, training_data_classifications, cv=fold, scoring='recall')
-                f1we = cross_validation.cross_val_score(clf, training_data_refined, training_data_classifications, cv=fold, scoring='f1')
+                prec = train_test_split.cross_val_score(clf, training_data_refined, training_data_classifications, cv=fold, scoring='precision')
+                recd = train_test_split.cross_val_score(clf, training_data_refined, training_data_classifications, cv=fold, scoring='recall')
+                f1we = train_test_split.cross_val_score(clf, training_data_refined, training_data_classifications, cv=fold, scoring='f1')
                 scor = prec.mean() * recd.mean()
                 print('Using %d fold, %.2E C, %.2E gamma: %0.2f precision, %0.2f recall, %0.2f f1, %0.2f score' % (fold, C_option, gamma_option, prec.mean(), recd.mean(), f1we.mean(), scor))
                 test_results.append([kernel_option,fold,C_option,gamma_option,class_weight_option,prec.mean(),recd.mean(),f1we.mean(),scor])

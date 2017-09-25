@@ -71,6 +71,8 @@ class Virtual_Ripp(object):
             self.direction = '+'
         else:
             self.direction = '-'
+	self.valid_split = True #set to false if no valid split
+
 #        self.set_leader_core()
 #        self.set_monoisotopic_mass()
 #        self.csv_columns = [self.leader, self.core, self.start, self.end]

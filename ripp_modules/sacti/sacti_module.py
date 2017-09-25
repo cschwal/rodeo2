@@ -447,16 +447,16 @@ def lanscout(seq):
         for county in rex2.finditer(core):
             loc1.append(county.start())
             match1.append(county.group())
-        
-        
         tempy = []
         for m in range(len(loc1[:-1])):
             if (loc1[m+1]-loc1[m]) > 0:
                 tempy.append(loc1[m+1]-loc1[m])
             else: 
                 tempy.append(1)
-        
-        avgs.append(np.mean(tempy))
+        if len(tempy) == 0:
+            avgs.append(np.nan)
+        else:
+            avgs.append(np.mean(tempy))
         numrings.append(len(match1))
         #print loc1
         #print match1

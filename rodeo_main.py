@@ -14,25 +14,26 @@ import nulltype_module
 import entrez_utils
 import main_html_generator
 import ripp_html_generator
+import My_Record
 
 VERBOSITY = logging.DEBUG
 
-logger = logging.getLogger("MAIN")
-logger.setLevel(VERBOSITY)
-# create console handler and set level to debug
-ch = logging.StreamHandler()
-ch.setLevel(VERBOSITY)
-
-# create formatter
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-# add formatter to ch
-ch.setFormatter(formatter)
-
-# add ch to logger
-logger.addHandler(ch)
 
 def __main__():
+    logger = logging.getLogger("rodeo_main")
+    logger.setLevel(VERBOSITY)
+    # create console handler and set level to debug
+    ch = logging.StreamHandler()
+    ch.setLevel(VERBOSITY)
+    
+    # create formatter
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    
+    # add formatter to ch
+    ch.setFormatter(formatter)
+    
+    # add ch to logger
+    logger.addHandler(ch)
 #==============================================================================
 #     First we will handle the input, whether it be an accession, a list of acc
 #   or a file which itself contains a list of accessions.
@@ -60,10 +61,14 @@ def __main__():
                         help='Type(s) of peptides to score.')
     parser.add_argument('-ea', '--evaluate_all', type=bool, default = False,
                         help='Evaluate all duplicates if accession id corresponds to duplicate entries')
-    parser.add_argument('-out', '--output_dir', type=str, default = "rodeo_out",
+    parser.add_argument('-out', '--output_dir', type=str,
                         help='Name of output folder')
+    parser.add_argument('-ex', '--exhaustive', type=bool, default = False,
+                        help="Score RiPPs even if they don't have a valid split site")
     args, _ = parser.parse_known_args()
     
+    if args.output_dir == None:
+        args.output_dir = args.query.split('.')[0] + "_rodeo_out"
     overwriting_folder = False
     try:
         os.mkdir(args.output_dir)
@@ -75,23 +80,17 @@ def __main__():
     if overwriting_folder:
         logger.warning("Overwriting %s folder." % (args.output_dir))
         
-#    global LOG_FILENAME
-#    LOG_FILENAME = args.output_name + "/LOG.txt"
-#    logging.basicConfig(filename=LOG_FILENAME, level=logging.debug)
-        
     if not any(args.fetch_type==ft for ft in ['orfs', 'nucs']):
         logger.critical("Invalid argument for -ft/-fetch_type")
         return None
     query = args.query
     queries = []
-    #WARNING:
-        #POSSIBLE INFINITE LOOP if users have circular file references
+    
     if '.txt' == query[-4:]:
         try:
             input_handle = open(query)
             for line in input_handle:
-                if len(line) < 4:
-                    logger.error("\"%s\" is too short to be a query!" % (line))
+                if line.rstrip() == "\n" or line.rstrip() == "": 
                     continue
                 queries.append(line.rstrip())
         except:
@@ -108,7 +107,9 @@ def __main__():
     peptide_types = args.peptide_types
     evaluate_all = args.evaluate_all
     output_dir = args.output_dir
+    exaustive = args.exhaustive
     module = nulltype_module
+    
     
         
     module.main_write_headers(output_dir)
@@ -120,24 +121,27 @@ def __main__():
     ripp_htmls = {}
     records = []
     for peptide_type in peptide_types:
-                list_of_rows = []
-                if peptide_type == "lasso":
-                    import ripp_modules.lasso.lasso_module as module
-                elif peptide_type == "lanthi":
-                    import ripp_modules.lanthi.lanthi_module as module
-                elif peptide_type == "sacti":
-                    import ripp_modules.sacti.sacti_module as module
-                elif peptide_type == "thio":
-                    import ripp_modules.thio.thio_module as module
-                else:
-                    continue
-                os.mkdir(output_dir + "/" + peptide_type)
-                ripp_modules[peptide_type] = module
-                ripp_htmls[peptide_type] = open(output_dir + "/" + peptide_type + "/" + peptide_type + "_results.html", 'w')
-                ripp_html_generator.write_header(ripp_htmls[peptide_type], args, peptide_type)
+        list_of_rows = []
+        if peptide_type == "lasso":
+            import ripp_modules.lasso.lasso_module as module
+        elif peptide_type == "lanthi":
+            import ripp_modules.lanthi.lanthi_module as module
+        elif peptide_type == "sacti":
+            import ripp_modules.sacti.sacti_module as module
+        elif peptide_type == "thio":
+            import ripp_modules.thio.thio_module as module
+        else:
+            logger.error("%s not in supported RiPP types" % (peptide_type))
+            continue
+        os.mkdir(output_dir + "/" + peptide_type)
+        module.write_csv_headers(output_dir)
+        ripp_modules[peptide_type] = module
+        ripp_htmls[peptide_type] = open(output_dir + "/" + peptide_type + "/" + peptide_type + "_results.html", 'w')
+        ripp_html_generator.write_header(ripp_htmls[peptide_type], args, peptide_type)
+        ripp_html_generator.write_table_of_contents(ripp_htmls[peptide_type], queries)
     
     for query in queries:
-        if not any(query[-4:] == extension for extension in ['.gb', '.gbk']):#accession_id
+        if '.gbk' != query[-4:] and '.gb' != query[-3:]: #accession_id
             logger.info("Running RODEO for %s" % ( query))
             gb_handles = entrez_utils.get_gb_handles(query)
             if gb_handles < 0:
@@ -193,8 +197,8 @@ def __main__():
             for peptide_type in peptide_types:
                 list_of_rows = []
                 module = ripp_modules[peptide_type]
-                module.write_csv_headers(output_dir)
-                record.set_ripps(module)
+#                module.write_csv_headers(output_dir)
+                record.set_ripps(module, exaustive)
                 record.score_ripps(module)
                 for ripp in record.ripps[peptide_type]:
                     list_of_rows.append(ripp.csv_columns)
@@ -210,9 +214,10 @@ def __main__():
         module = ripp_modules[peptide_type]
         module.run_svm(output_dir)
     
-    for record in records:
-        record.update_score_w_svm(output_dir)
-        for peptide_type in peptide_types: 
+    My_Record.update_score_w_svm(output_dir, records)
+    
+    for peptide_type in peptide_types: 
+        for record in records:
             ripp_html_generator.write_record(ripp_htmls[peptide_type], record, peptide_type)
 
 if __name__ == '__main__':

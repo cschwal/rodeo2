@@ -96,6 +96,10 @@ def get_record_from_gb_handle(gb_handle, nuccore_accession_id):
                 if 'protein_id' in feature.qualifiers.keys():
                     accession_id = feature.qualifiers['protein_id'][0]
                     direction = feature.strand
+                    if direction == -1:
+                        tmp = start
+                        start = end
+                        end = tmp
                     if nuccore_accession_id == accession_id:
                         ret_record.query_index = len(ret_record.CDSs)
                 else:

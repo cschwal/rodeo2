@@ -7,6 +7,23 @@ Created on Mon Aug  7 21:09:19 2017
 """
 import hmmer_utils
 import csv
+import logging 
+from rodeo_main import VERBOSITY
+
+logger = logging.getLogger(__name__)
+logger.setLevel(VERBOSITY)
+# create console handler and set level to debug
+ch = logging.StreamHandler()
+ch.setLevel(VERBOSITY)
+
+# create formatter
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# add formatter to ch
+ch.setFormatter(formatter)
+
+# add ch to logger
+logger.addHandler(ch)
 
 class My_Record(object):
     """ """
@@ -39,6 +56,7 @@ class My_Record(object):
                 self.direction = "-"
             self.sequence = seq
             self.accession_id = accession_id
+            self.upstream_sequence ="xxxxx"
             self.type = seq_type ##aa, nt etc.
     
     def _get_query_index(self):
@@ -94,7 +112,8 @@ class My_Record(object):
     def annotate_w_hmmer(self):
         self.pfam_2_coords = {}
         for CDS in self.CDSs:
-            CDS.pfam_descr_list = hmmer_utils.get_hmmer_info(CDS.accession_id) #Possible input for n and e_cutoff here
+            logger.debug("Running HMMScan on %s" % (CDS.accession_id))
+            CDS.pfam_descr_list = hmmer_utils.get_hmmer_info(CDS.sequence, query_is_accession=False) #Possible input for n and e_cutoff here
             for annot in CDS.pfam_descr_list:
                 if annot[0] not in self.pfam_2_coords.keys(): #annot[0] is the PF* key
                     self.pfam_2_coords[annot[0]] = []
@@ -102,16 +121,16 @@ class My_Record(object):
 
     def set_intergenic_seqs(self):
         """Sets the sequences between called CDSs"""
-        
         #First need to check if we have trimmed our sequence yet
+        MIN_CUTOFF = 75 #Minimum number of intergenic nucs to be considered for ORF scanning        
         if self.window_end == 0:
             self.window_end = len(self.cluster_sequence)
         start = self.window_start
         for cds in self.CDSs:
             if len(cds.pfam_descr_list) == 0:
-                continue
+                self.intergenic_orfs.append(cds)
             end = cds.start
-            if end > start:
+            if end > start and abs(end-start) >= MIN_CUTOFF:
                 #end == start could happen if the first cds starts at 0
                 nt_seq = self.cluster_sequence[start:end]
                 intergenic_sequence = self.Sub_Seq(seq_type='IGS',
@@ -123,7 +142,7 @@ class My_Record(object):
             start = cds.end
         nt_seq = self.cluster_sequence[start:]
         end = self.window_end
-        if end > start:
+        if end > start and abs(end-start) >= MIN_CUTOFF:
             intergenic_sequence = self.Sub_Seq(seq_type='IGS',
                                                    seq=nt_seq, 
                                                    start=start,
@@ -208,36 +227,19 @@ class My_Record(object):
             i += 1
         return
     
-    def set_ripps(self, module):
+    def set_ripps(self, module, exaustive):
+        logger.debug("Setting %s ripps for %s" % (module.peptide_type, self.query_accession_id))
         self.ripps[module.peptide_type] = []
         for orf in self.intergenic_orfs:
             ripp = module.Ripp(orf.start, orf.end, str(orf.sequence), orf.upstream_sequence, self.pfam_2_coords)
-            if ripp.split_index != -1:
+            if ripp.valid_split:
                 self.ripps[module.peptide_type].append(ripp)
                 
     def score_ripps(self, module):
+        logger.debug("Scoring %s ripps for %s" % (module.peptide_type, self.query_accession_id))
         for ripp in self.ripps[module.peptide_type]:
             ripp.set_score()
                 
-    def update_score_w_svm(self, output_dir):
-        """Order should be preserved. Goes through file and updates scores"""
-        for peptide_type in self.ripps.keys():
-            score_reader = csv.reader(open(output_dir + '/' + peptide_type + '/' +\
-                                           peptide_type + '_features.csv')) 
-            score_reader.next()
-            
-            score_reader_done = False
-            for ripp in self.ripps[peptide_type]:
-                if not score_reader_done:
-                    try:
-                        line = score_reader.next()
-                    except:
-                        score_reader_done = True
-                if score_reader_done:
-                    print(ripp.sequence)
-                ripp.score = int(line[6])
-                
-                    
     def print_info(self):
         print("="*50)
         counter = 0
@@ -270,3 +272,23 @@ class My_Record(object):
                   " on strand " + str(strand))
             print(sub_seq.sequence + '\n')
         print("="*50)
+    
+    
+def update_score_w_svm(output_dir, records):
+        """Order should be preserved. Goes through file and updates scores"""
+        for peptide_type in records[0].ripps.keys():
+            score_reader = csv.reader(open(output_dir + '/' + peptide_type + '/' +\
+                                           peptide_type + '_features.csv')) 
+            score_reader.next()
+            
+            score_reader_done = False
+            for record in records:
+                for ripp in record.ripps[peptide_type]:
+                    if not score_reader_done:
+                        try:
+                            line = score_reader.next()
+                        except:
+                            score_reader_done = True
+                            logger.warning("Mismatch in RiPP count and length of CSV. Score results are most likely invalid")
+                    ripp.score = int(line[6])
+                        

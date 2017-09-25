@@ -49,23 +49,33 @@ def write_header(html_file, args, peptide_type):
     html_file.write("""
                         <tr><th scope="row">Peptide Range</th><td>""" + str(args.lower_limit) + "-" + str(args.upper_limit) + """ aa</td></tr>
                         <tr><th scope="row">Fetch Distance</th><td>""" + str(args.overlap) + """bp</td></tr>
-                        <tr><th scope="row">Peptide Type</th><td>""" + peptide_type + """</td></tr>
+                        <tr><th scope="row">Peptide Type</th><td> %s </td></tr>
                   </table>
          </div>
          <div class="col-md-6">
                     <div class="panel panel-default">
         </table>
         </div></div>
-        </div>""")
+        </div>""" % (peptide_type))
+
+def get_fill_color(cds):
+    for i in range(len(cds.pfam_descr_list)):
+        if "PF00733" in cds.pfam_descr_list[i][0]: #E1 like protein
+            return "#377eb8"
+        elif "PF05402" in cds.pfam_descr_list[i][0]: #PqqD 
+            return "#ffff33"
+        elif "PF13471" in cds.pfam_descr_list[i][0]: #Dehydrogenase
+            return "#ff7f00"
+        elif "PF00005" in cds.pfam_descr_list[i][0]: #ABC Transporter
+            return "red"
+        elif "PF02624" in cds.pfam_descr_list[i][0]: #YcaO-like protein
+            return "#984ea3"
+    return "white"
 
 def draw_CDS_arrow(main_html, cds, sub_by, scale_factor):
-    fill_color = "white" #TODO make changes
-    if cds.direction == "+":
-        start = cds.start
-        end = cds.end
-    else:
-        end = cds.start
-        start = cds.end
+    fill_color = get_fill_color(cds)
+    start = cds.start
+    end = cds.end
     #HMM info
     if len(cds.pfam_descr_list) == 0:
         pfamID = "No Pfam match"
@@ -110,7 +120,7 @@ def draw_orf_arrow(main_html, orf, sub_by, scale_factor, index):
     main_html.write(str(index))
     main_html.write("</text>")
 
-def draw_orf_diagram(main_html, record):
+def draw_orf_diagram(main_html, record, peptide_type):
     main_html.write('<h3>Architecture</h3>\n')
     main_html.write('<svg width="1060" height="53">')
     bsc_start = record.CDSs[0].start
@@ -122,9 +132,9 @@ def draw_orf_diagram(main_html, record):
     main_html.write('</svg>')
     main_html.write('<svg width="1060" height="53">')
     index = 0
-    for orf in record.intergenic_orfs:
+    for ripp in record.ripps[peptide_type]:
         index += 1
-        draw_orf_arrow(main_html, orf, sub_by, scale_factor, index)
+        draw_orf_arrow(main_html, ripp, sub_by, scale_factor, index)
     main_html.write('</svg>')
     bar_length = scale_factor * 1000
     bar_legx = bar_length + 5
@@ -237,11 +247,10 @@ def write_record(main_html, record, peptide_type):
     #PUT LINK TO nuc SEQUENCE
     #TABLE of CDS
     #TABLE of ORFs
-    
     main_html.write('<h2 id="%s"> Results for %s [%s]\n' % (record.query_accession_id, record.query_accession_id, record.cluster_genus_species))
     main_html.write('<a href="#header"><small><small>back to top</small></small></a></h2>') #TODO keep for single?
     main_html.write('<p></p>') # TODO why
-    draw_orf_diagram(main_html, record)
+    draw_orf_diagram(main_html, record, peptide_type)
     main_html.write('<p></p>') 
     main_html.write('<a href="https://www.ncbi.nlm.nih.gov/nuccore/%s">Link to nucleotide sequence</a>' % (record.cluster_accession))
     draw_cds_table(main_html, record)

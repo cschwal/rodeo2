@@ -56,7 +56,6 @@ import csv
 
 from sklearn import svm
 from sklearn import preprocessing
-from sklearn import cross_validation
 from sklearn import metrics
 
 # CONFIGURATION OPTIONS
@@ -73,7 +72,7 @@ csv_has_header = True;             # set to true if CSVs have header rows to ign
 kernel_option = 'rbf'
 C_option = 25
 gamma_option = 2.75E-06
-class_weight_option = 'auto'
+class_weight_option = 'balanced'
 
 def parse_CSV_to_dataset(csv_filename, dataset_type):
     '''Parse an input CSV into a data set
@@ -122,7 +121,6 @@ def run_svm():
 
     # parse data
     
-    print "Importing training and fitting data ..."
     training_data_unrefined = parse_CSV_to_dataset(input_training_file, 'training')
     fitting_data_unrefined = parse_CSV_to_dataset(input_fitting_file, 'fitting')
     
@@ -139,8 +137,6 @@ def run_svm():
         primary_key_list.append(entry.pop(0))
         entry.pop(0)
         fitting_data_just_features.append(entry)
-    print "  (done)"
-    print "Initiating learning and fitting"
     
     # Scaling -- this ensures standardization of model and target data
     training_data_refined = preprocessing.scale(training_data_just_features)
@@ -157,7 +153,6 @@ def run_svm():
     
     # Output results to file
     write_to_csv(primary_key_list, classification_list, output_filename)
-    print " ... Done"
     
     return
 
