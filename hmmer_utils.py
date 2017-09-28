@@ -6,9 +6,11 @@ Created on Mon Aug  7 21:38:20 2017
 @author: bryce
 """
 
+import os
 import csv
 import subprocess
-       
+   
+pid = None    
 #TODO try/except blocks for error checking processes
 def _generate_fasta(accession):
     out_file = open("fasta_file.tmp.fasta", 'w+')
@@ -20,20 +22,20 @@ def _generate_fasta(accession):
     out_file.close()
 
 def _generate_fasta_from_string(query_string):
-    handle = open("fasta_file.tmp.fasta", "w+")
+    handle = open(pid+"fasta_file.tmp.fasta", "w+")
     handle.write(">temp_string\n" + query_string)
 
 def _generate_hmmer():
-    hmmer_process = subprocess.call(["hmmscan", "-o", "hmm_out.tmp.tab", "--noali",
-                                      "--domtblout", "pFamInfo.tmp.tab", "Pfam-A.hmm",
-                                      "fasta_file.tmp.fasta"])    
+    hmmer_process = subprocess.call(["hmmscan", "-o", pid+"hmm_out.tmp.tab", "--noali",
+                                      "--domtblout", pid+"pFamInfo.tmp.tab", "Pfam-A.hmm",
+                                      pid+"fasta_file.tmp.fasta"])    
 
 #TODO try/except blocks for parsing to double check format
 def _parse(n, e_cutoff):
     ret_list = []
     NUM_COLUMNS = 23
     pfam_accession = ''
-    with open('pFamInfo.tmp.tab') as handle:
+    with open(pid+'pFamInfo.tmp.tab') as handle:
         for line in csv.reader(handle, delimiter=' '):
             if line[0][0] == '#':
                 continue
@@ -51,12 +53,17 @@ def _parse(n, e_cutoff):
                     return ret_list
     return ret_list
 
-def get_hmmer_info(query, n=3, e_cutoff=.001, query_is_accession=True): #TODO handle lists of accessions
+def get_hmmer_info(query, n=3, e_cutoff=.001, query_is_accession=False): #TODO handle lists of accessions
     """Returns top n hmmscan hits with e_values lower than e_cutoff"""
+    global pid
+    pid = str(os.getpid())
     if query_is_accession:
         _generate_fasta(query)
     else:
         _generate_fasta_from_string(query)
     _generate_hmmer()
     pfam_desc_list = _parse(n, e_cutoff)
+    os.remove(pid+'pFamInfo.tmp.tab')
+    os.remove(pid+"fasta_file.tmp.fasta")
+    os.remove(pid+"hmm_out.tmp.tab")
     return pfam_desc_list

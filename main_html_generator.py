@@ -59,18 +59,14 @@ def write_header(html_file, args):
 
 def draw_CDS_arrow(main_html, cds, sub_by, scale_factor):
     fill_color = "white" #TODO make changes
-    if cds.direction == "+":
-        start = cds.start
-        end = cds.end
-    else:
-        end = cds.start
-        start = cds.end
+    start = cds.start
+    end = cds.end
     #HMM info
     if len(cds.pfam_descr_list) == 0:
         pfamID = "No Pfam match"
         pfam_desc = ""
     else:
-        pfamID = cds.pfam_descr_list[0][0]
+        pfamID = cds.pfam_descr_list[0][0].split('.')[0] #No need for version?
         pfam_desc = cds.pfam_descr_list[0][1]
     main_html.write('<polygon points=\"')
     arrow_wid = int((start - sub_by) * scale_factor)

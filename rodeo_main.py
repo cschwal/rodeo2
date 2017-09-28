@@ -15,6 +15,7 @@ import entrez_utils
 import main_html_generator
 import ripp_html_generator
 import My_Record
+import time
 
 VERBOSITY = logging.DEBUG
 
@@ -120,6 +121,12 @@ def __main__():
     ripp_modules = {}
     ripp_htmls = {}
     records = []
+    
+    HMM_SCAN_TIME = 0
+    SCORE_TIME = 0
+    WRITE_READ_TIME = 0
+    REQUEST_TIME = 0
+    SVM_TIME = 0
     for peptide_type in peptide_types:
         list_of_rows = []
         if peptide_type == "lasso":
@@ -140,9 +147,12 @@ def __main__():
         ripp_html_generator.write_header(ripp_htmls[peptide_type], args, peptide_type)
         ripp_html_generator.write_table_of_contents(ripp_htmls[peptide_type], queries)
     
+    query_no = 1
     for query in queries:
+        t0 = time.time()
         if '.gbk' != query[-4:] and '.gb' != query[-3:]: #accession_id
-            logger.info("Running RODEO for %s" % ( query))
+            logger.info("Running RODEO for %d.\t%s" % ( query_no, query))
+            query_no += 1
             gb_handles = entrez_utils.get_gb_handles(query)
             if gb_handles < 0:
                 error_message = "ERROR:\tentrez_utils.get_gb_handles(%s) returned with value %d"\
@@ -155,8 +165,11 @@ def __main__():
             except Exception as e:
                 logger.error(e)
                 continue
+        REQUEST_TIME += time.time()-t0
         for handle in gb_handles:
+            t0 = time.time()
             record = entrez_utils.get_record_from_gb_handle(handle, query)
+            REQUEST_TIME += time.time()-t0
             if record < 0:
                 error_message = "ERROR:\tentrez_utils.get_record_from_gb_handle(%s) returned with value %d"\
                   % (query, record)
@@ -166,12 +179,15 @@ def __main__():
                 record.trim_to_n_orfs(fetch_n, fetch_distance)
             elif fetch_type == 'nucs':
                 record.trim_to_n_nucleotides(fetch_n, window_size)
+            t0 = time.time()   
             record.annotate_w_hmmer()
+            HMM_SCAN_TIME += time.time()-t0
             record.set_intergenic_seqs()
             record.set_intergenic_orfs(min_aa_seq_length=min_aa_seq_length, 
                                        max_aa_seq_length=max_aa_seq_length,
                                        overlap=overlap)
             module = nulltype_module
+            t0 = time.time()
             for orf in record.intergenic_orfs:
                 if orf.start < orf.end:
                     direction = "+"
@@ -190,7 +206,10 @@ def __main__():
                 for pfam_acc, desc, e_val in cds.pfam_descr_list:
                     row += [pfam_acc, desc, e_val]
                 module.co_occur_write_row(output_dir, row)
+                WRITE_READ_TIME += time.time() - t0
+            t0 = time.time()
             main_html_generator.write_record(main_html, record)
+            WRITE_READ_TIME += time.time() - t0
     #==============================================================================
     #     All generic orf processing is done now. Moving on to RiPP class specifics
     #==============================================================================
@@ -198,27 +217,40 @@ def __main__():
                 list_of_rows = []
                 module = ripp_modules[peptide_type]
 #                module.write_csv_headers(output_dir)
+                t0 = time.time()
                 record.set_ripps(module, exaustive)
                 record.score_ripps(module)
+                SCORE_TIME += time.time() - t0
                 for ripp in record.ripps[peptide_type]:
                     list_of_rows.append(ripp.csv_columns)
+                t0 = time.time()
                 module.ripp_write_rows(output_dir, record.cluster_accession, #cluster acc or query acc?
                                        record.cluster_genus_species, list_of_rows)
+                WRITE_READ_TIME += time.time() - t0
             records.append(record)
             
             if not evaluate_all:
                 #TODO users may want to see what the other entries could be?
                 break
-    main_html.write("</html>")    
+    main_html.write("</html>")   
+    t0 = time.time()
     for peptide_type in peptide_types:
         module = ripp_modules[peptide_type]
         module.run_svm(output_dir)
-    
+    SVM_TIME += time.time() - t0
+    t0 = time.time()
     My_Record.update_score_w_svm(output_dir, records)
     
     for peptide_type in peptide_types: 
         for record in records:
             ripp_html_generator.write_record(ripp_htmls[peptide_type], record, peptide_type)
-
+    WRITE_READ_TIME += time.time() - t0
+    logger.debug("Time for requests %f" % (REQUEST_TIME))
+    logger.debug("Time for I/O %f" % (WRITE_READ_TIME))
+    logger.debug("Time for HMMSCAN %f" % (HMM_SCAN_TIME))
+    logger.debug("Time for SCORE/SPLIT %f" % (SCORE_TIME))
+    logger.debug("Time for SVM %f" % (SVM_TIME))
+    
+    
 if __name__ == '__main__':
     __main__()

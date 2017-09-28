@@ -81,7 +81,7 @@ def draw_CDS_arrow(main_html, cds, sub_by, scale_factor):
         pfamID = "No Pfam match"
         pfam_desc = ""
     else:
-        pfamID = cds.pfam_descr_list[0][0]
+        pfamID = cds.pfam_descr_list[0][0].split('.')[0] #No need for version?
         pfam_desc = cds.pfam_descr_list[0][1]
     main_html.write('<polygon points=\"')
     arrow_wid = int((start - sub_by) * scale_factor)

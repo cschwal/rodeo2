@@ -9,6 +9,14 @@ import hmmer_utils
 import csv
 import logging 
 from rodeo_main import VERBOSITY
+from multiprocessing import Pool
+#NOTE TODO
+#TOC w/ genus psecies
+#Config files w color
+#config files unique to module
+#Don't print precursors in master
+#web tool deletion day to 2 weeks
+#split html files that get too large
 
 logger = logging.getLogger(__name__)
 logger.setLevel(VERBOSITY)
@@ -110,14 +118,28 @@ class My_Record(object):
         self._clean_CDSs()
         
     def annotate_w_hmmer(self):
-        self.pfam_2_coords = {}
-        for CDS in self.CDSs:
-            logger.debug("Running HMMScan on %s" % (CDS.accession_id))
-            CDS.pfam_descr_list = hmmer_utils.get_hmmer_info(CDS.sequence, query_is_accession=False) #Possible input for n and e_cutoff here
-            for annot in CDS.pfam_descr_list:
-                if annot[0] not in self.pfam_2_coords.keys(): #annot[0] is the PF* key
-                    self.pfam_2_coords[annot[0]] = []
-                self.pfam_2_coords[annot[0]].append((CDS.start, CDS.end))
+#        self.pfam_2_coords = {}
+#        for CDS in self.CDSs:
+#            logger.debug("Running HMMScan on %s" % (CDS.accession_id))
+#            CDS.pfam_descr_list = hmmer_utils.get_hmmer_info(CDS.sequence) #Possible input for n and e_cutoff here
+#            for annot in CDS.pfam_descr_list:
+#                if annot[0] not in self.pfam_2_coords.keys(): #annot[0] is the PF* key
+#                    self.pfam_2_coords[annot[0]] = []
+#                self.pfam_2_coords[annot[0]].append((CDS.start, CDS.end))
+
+        p = Pool(6)
+        try:
+            hmmer_annots = p.map_async(hmmer_utils.get_hmmer_info, [cds.sequence for cds in self.CDSs]).get(999999) #http://xcodest.me/interrupt-the-python-multiprocessing-pool-in-graceful-way.html
+            for i in range(len(self.CDSs)):
+                self.CDSs[i].pfam_descr_list = hmmer_annots[i]
+                for annot in self.CDSs[i].pfam_descr_list:
+                    if annot[0] not in self.pfam_2_coords.keys(): #annot[0] is the PF* key
+                        self.pfam_2_coords[annot[0]] = []
+                    self.pfam_2_coords[annot[0]].append((self.CDSs[i].start, self.CDSs[i].end))
+        except:
+            logger.critical("SIGINT recieved during HMMScan")
+            p.terminate()
+        p.close()
 
     def set_intergenic_seqs(self):
         """Sets the sequences between called CDSs"""
@@ -129,8 +151,8 @@ class My_Record(object):
         for cds in self.CDSs:
             if len(cds.pfam_descr_list) == 0:
                 self.intergenic_orfs.append(cds)
-            end = cds.start
-            if end > start and abs(end-start) >= MIN_CUTOFF:
+            end = min(cds.start, cds.end)
+            if end-start >= MIN_CUTOFF:
                 #end == start could happen if the first cds starts at 0
                 nt_seq = self.cluster_sequence[start:end]
                 intergenic_sequence = self.Sub_Seq(seq_type='IGS',
@@ -139,7 +161,7 @@ class My_Record(object):
                                                    end=end,
                                                    direction=0) #direction doesnt matter
                 self.intergenic_seqs.append(intergenic_sequence)
-            start = cds.end
+            start = max(cds.end, cds.start)
         nt_seq = self.cluster_sequence[start:]
         end = self.window_end
         if end > start and abs(end-start) >= MIN_CUTOFF:

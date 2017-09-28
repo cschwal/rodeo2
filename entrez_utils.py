@@ -29,6 +29,35 @@ logger.addHandler(ch)
 
 Entrez.email = 'kille2@illinois.edu'
 
+def fill_request_queue(queries, queue):
+    for query in queries:
+        t0 = time.time()
+        if '.gbk' != query[-4:] and '.gb' != query[-3:]: #accession_id
+            logger.info("Running RODEO for %d.\t%s" % ( query_no, query))
+            query_no += 1
+            gb_handles = entrez_utils.get_gb_handles(query)
+            if gb_handles < 0:
+                error_message = "ERROR:\tentrez_utils.get_gb_handles(%s) returned with value %d"\
+                      % (query, gb_handles)
+                main_html_generator.write_failed_query(main_html, query, error_message)
+                continue
+        else:#gbk file
+            try:
+                gb_handles = [open(query)]
+            except Exception as e:
+                logger.error(e)
+                continue
+        REQUEST_TIME += time.time()-t0
+        for handle in gb_handles:
+            t0 = time.time()
+            record = entrez_utils.get_record_from_gb_handle(handle, query)
+            REQUEST_TIME += time.time()-t0
+            if record < 0:
+                error_message = "ERROR:\tentrez_utils.get_record_from_gb_handle(%s) returned with value %d"\
+                  % (query, record)
+                main_html_generator.write_failed_query(main_html, query, error_message)
+                continue
+
 def get_gb_handles(prot_accession_id):
     """Returns a list of .gb/.gbk filestreams from protein db accession.
     
